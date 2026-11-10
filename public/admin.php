@@ -28,7 +28,9 @@ function splitRoleKeys(string $text): array
 }
 
 if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!csrfValid()) {
+    if (empty($_POST) && (int) ($_SERVER['CONTENT_LENGTH'] ?? 0) > 0) {
+        $errors[] = 'Odeslaný soubor je větší než limit hostingu (post_max_size = ' . ini_get('post_max_size') . '). Zmenšete logo.';
+    } elseif (!csrfValid()) {
         $errors[] = 'Formulář vypršel nebo není platný. Obnovte stránku a zkuste to znovu.';
     } elseif (($_POST['action'] ?? '') === 'skautis') {
         $appId = trim((string) ($_POST['skautis_app_id'] ?? ''));
@@ -267,11 +269,11 @@ renderHeader('Administrace', $currentUser);
             <?php endforeach; ?>
             <?php
             $agendaRowHtml = static function (string $prefix, array $row): string {
-                $level = (int) ($row['level'] ?? 1) === 2 ? 2 : 1;
+                $level = max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1)));
                 $id = isset($row['id']) ? (string) (int) $row['id'] : '__N__';
                 $base = $prefix . '[' . $id . ']';
-                return '<div class="agenda-row' . ($level === 2 ? ' sub' : '') . '" data-agenda-row>'
-                    . '<span class="drag-handle" title="Přetáhněte pro změnu pořadí">⠿</span>'
+                return '<div class="agenda-row' . ($level > 1 ? ' lvl-' . $level : '') . '" data-agenda-row>'
+                    . '<button type="button" class="collapse-toggle" data-agenda-toggle title="Sbalit / rozbalit podbody">▾<span class="collapse-count"></span></button><button type="button" data-agenda-move="-1" title="Nahoru (i s podbody)">↑</button><button type="button" data-agenda-move="1" title="Dolů (i s podbody)">↓</button>'
                     . '<input type="hidden" data-level name="' . $base . '[level]" value="' . $level . '">'
                     . '<button type="button" data-agenda-indent="-1" title="Zrušit odsazení (bod)">⇤</button>'
                     . '<button type="button" data-agenda-indent="1" title="Odsadit (podbod)">⇥</button>'
@@ -283,7 +285,7 @@ renderHeader('Administrace', $currentUser);
             ?>
             <section class="card lookup-card">
                 <h2>Osnova zápisu (hlavní kategorie)</h2>
-                <p class="muted">Body přetahujte myší za ⠿. Tlačítky ⇥ / ⇤ se bod odsadí jako podbod nebo vrátí. „Přenášet“ znamená, že se obsah bodu vždy převezme z předchozího zápisu; ostatní body se přenášejí jen když je v zápisu zaškrtnuto „Řešit na další radě“.</p>
+                <p class="muted">Pořadí měňte šipkami ↑ ↓ (podbody se přesouvají s bodem), ▾ podbody sbalí. Tlačítky ⇥ / ⇤ se bod odsadí jako podbod nebo vrátí. „Přenášet“ znamená, že se obsah bodu vždy převezme z předchozího zápisu; ostatní body se přenášejí jen když je v zápisu zaškrtnuto „Řešit na další radě“.</p>
                 <div class="agenda-list" id="agenda-list">
                     <?php foreach ($agendaRows as $row): ?>
                         <?= $agendaRowHtml('agenda', $row) ?>
@@ -296,52 +298,6 @@ renderHeader('Administrace', $currentUser);
         </form>
         <script>
         document.addEventListener('click', function (event) {
-            var list = document.getElementById('agenda-list');
-            var add = event.target.closest('#agenda-add');
-            if (add) {
-                var n = list.querySelectorAll('[data-agenda-row]').length + Date.now();
-                list.insertAdjacentHTML('beforeend', document.getElementById('agenda-template').innerHTML.replace(/__N__/g, String(n)));
-                list.lastElementChild.querySelector('input[type="text"]').focus();
-                return;
-            }
-            var indent = event.target.closest('[data-agenda-indent]');
-            if (indent) {
-                var row = indent.closest('[data-agenda-row]');
-                var sub = parseInt(indent.dataset.agendaIndent, 10) > 0;
-                row.classList.toggle('sub', sub);
-                row.querySelector('[data-level]').value = sub ? '2' : '1';
-                return;
-            }
-            var remove = event.target.closest('[data-agenda-remove]');
-            if (remove) { remove.closest('[data-agenda-row]').remove(); }
-        });
-        (function () {
-            var dragged = null;
-            document.addEventListener('mousedown', function (event) {
-                var row = event.target.closest('[data-agenda-row]');
-                if (row) { row.draggable = !!event.target.closest('.drag-handle'); }
-            });
-            document.addEventListener('dragstart', function (event) {
-                var row = event.target.closest && event.target.closest('[data-agenda-row]');
-                if (!row) { return; }
-                dragged = row;
-                event.dataTransfer.effectAllowed = 'move';
-                event.dataTransfer.setData('text/plain', '');
-                row.classList.add('dragging');
-            });
-            document.addEventListener('dragover', function (event) {
-                var target = event.target.closest && event.target.closest('[data-agenda-row]');
-                if (!dragged || !target || target === dragged) { return; }
-                event.preventDefault();
-                var box = target.getBoundingClientRect();
-                target.parentElement.insertBefore(dragged, event.clientY < box.top + box.height / 2 ? target : target.nextSibling);
-            });
-            document.addEventListener('dragend', function () {
-                if (dragged) { dragged.classList.remove('dragging'); dragged.draggable = false; }
-                dragged = null;
-            });
-        })();
-        document.addEventListener('click', function (event) {
             var button = event.target.closest('[data-lookup-move]');
             if (!button) { return; }
             var row = button.closest('.lookup-row');
@@ -352,6 +308,88 @@ renderHeader('Administrace', $currentUser);
                 row.parentElement.insertBefore(row.nextElementSibling, row);
             }
         });
+        (function () {
+            var list = document.getElementById('agenda-list');
+            if (!list) { return; }
+            var MAX = 5;
+            function level(row) { return parseInt(row.querySelector('[data-level]').value, 10) || 1; }
+            function setLevel(row, value) {
+                row.querySelector('[data-level]').value = String(value);
+                row.className = row.className.replace(/\blvl-\d+\b/g, '').trim() + (value > 1 ? ' lvl-' + value : '');
+            }
+            function block(row) {
+                var rows = [row];
+                for (var n = row.nextElementSibling; n && level(n) > level(row); n = n.nextElementSibling) { rows.push(n); }
+                return rows;
+            }
+            function refresh() {
+                var previousLevel = 0, previous = null, hideBelow = Infinity;
+                Array.prototype.forEach.call(list.children, function (row) {
+                    var current = Math.max(1, Math.min(level(row), previousLevel + 1, MAX));
+                    if (current !== level(row)) { setLevel(row, current); }
+                    previousLevel = current;
+                    if (current > hideBelow) { row.hidden = true; } else { hideBelow = Infinity; row.hidden = false; }
+                    var subs = block(row).length - 1;
+                    var collapsed = row.classList.contains('collapsed');
+                    row.classList.toggle('has-subs', subs > 0);
+                    row.querySelector('.collapse-count').textContent = collapsed && subs ? '(' + subs + ')' : '';
+                    if (collapsed && subs && hideBelow === Infinity) { hideBelow = current; }
+                    var deepest = Math.max.apply(null, block(row).map(level));
+                    row.querySelector('[data-agenda-indent="1"]').disabled = !previous || level(previous) < current || deepest + 1 > MAX;
+                    row.querySelector('[data-agenda-indent="-1"]').disabled = current <= 1;
+                    previous = row;
+                });
+            }
+            document.addEventListener('click', function (event) {
+                var add = event.target.closest('#agenda-add');
+                if (add) {
+                    var n = list.children.length + Date.now();
+                    list.insertAdjacentHTML('beforeend', document.getElementById('agenda-template').innerHTML.replace(/__N__/g, String(n)));
+                    list.lastElementChild.querySelector('input[type="text"]').focus();
+                    refresh();
+                    return;
+                }
+                var row = event.target.closest('[data-agenda-row]');
+                if (!row) { return; }
+                var toggle = event.target.closest('[data-agenda-toggle]');
+                var move = event.target.closest('[data-agenda-move]');
+                var indent = event.target.closest('[data-agenda-indent]');
+                var remove = event.target.closest('[data-agenda-remove]');
+                var rows = block(row);
+                if (toggle) {
+                    row.classList.toggle('collapsed');
+                } else if (indent && !indent.disabled) {
+                    var delta = parseInt(indent.dataset.agendaIndent, 10);
+                    rows.forEach(function (r) { setLevel(r, level(r) + delta); });
+                } else if (remove) {
+                    row.remove();
+                } else if (move) {
+                    if (parseInt(move.dataset.agendaMove, 10) < 0) {
+                        var before = row.previousElementSibling;
+                        while (before && level(before) > level(row)) { before = before.previousElementSibling; }
+                        if (before && level(before) === level(row)) {
+                            rows.forEach(function (r) { list.insertBefore(r, before); });
+                        }
+                    } else {
+                        var next = rows[rows.length - 1].nextElementSibling;
+                        if (next && level(next) === level(row)) {
+                            var after = block(next).pop().nextElementSibling;
+                            rows.forEach(function (r) { list.insertBefore(r, after); });
+                        }
+                    }
+                } else {
+                    return;
+                }
+                refresh();
+            });
+            document.addEventListener('change', function (event) {
+                var box = event.target;
+                var row = box.closest && box.closest('[data-agenda-row]');
+                if (!row || !/\[carry\]$/.test(box.name || '')) { return; }
+                block(row).forEach(function (r) { r.querySelector('input[name$="[carry]"]').checked = box.checked; });
+            });
+            refresh();
+        })();
         </script>
     <?php endif; ?>
     <?php if ($settings && $tab === 'permissions'): ?>

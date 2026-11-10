@@ -99,6 +99,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
+$wantForm = $isPost || isset($_GET['new']) || isset($_GET['edit']) || isset($_GET['event']) || isset($_GET['from']);
 
 if ($isPost && $pdo && isset($postedPast)) {
     try {
@@ -186,7 +187,7 @@ if ($pdo && !$databaseError) {
                     ];
                 }
             }
-        } elseif (!$isPost) {
+        } elseif (!$isPost && $wantForm) {
             $fromId = $allMeetings[0]['id'] ?? null;
             if (isset($_GET['from'])) {
                 $fromId = ctype_digit((string) $_GET['from']) ? (int) $_GET['from'] : null;
@@ -243,7 +244,7 @@ if (isset($_GET['saved'])) {
     $notice = 'Zápis byl smazán.';
 }
 
-$showForm = !$meeting && $pdo && !$databaseError;
+$showForm = !$meeting && $pdo && !$databaseError && $wantForm;
 renderHeader('Zápisy z rady', $currentUser);
 ?>
 <header class="site-header">
@@ -319,7 +320,7 @@ renderHeader('Zápisy z rady', $currentUser);
                         <h4><?= h($item['label']) ?> <?= h($item['title']) ?></h4>
                     <?php endif; ?>
                     <?= renderNotes($item['notes']) ?>
-                    <?php if ((int) $item['level'] === 2 && mb_strtolower(trim($item['title'])) === 'vedoucí družin a družiny'): ?>
+                    <?php if ((int) $item['level'] >= 2 && mb_strtolower(trim($item['title'])) === 'vedoucí družin a družiny'): ?>
                         <?= renderSeasonTimetables($meeting['season']) ?>
                     <?php endif; ?>
                     <?php $titleLower = mb_strtolower($item['title']); ?>
@@ -368,6 +369,7 @@ renderHeader('Zápisy z rady', $currentUser);
 
                 <?php if (!$editId && !$isPost): ?>
                     <form method="get" class="carry-form">
+                        <input type="hidden" name="new" value="1">
                         <?php if ($event): ?><input type="hidden" name="event" value="<?= h($event['key']) ?>"><?php endif; ?>
                         <label>Převzít body z minulého zápisu
                             <select name="from" onchange="this.form.submit()">
@@ -485,9 +487,10 @@ renderHeader('Zápisy z rady', $currentUser);
             </section>
         <?php endif; ?>
 
+        <?php if (!$showForm): ?>
         <aside class="card recent-card">
             <h2>Zápisy</h2>
-            <p><a class="button" href="minutes.php">Nový zápis</a></p>
+            <p><a class="button" href="minutes.php?new=1">＋ Nový zápis bez události</a></p>
 
             <?php if (calendarConfigured()): ?>
                 <h3>Rady z kalendáře</h3>
@@ -525,6 +528,7 @@ renderHeader('Zápisy z rady', $currentUser);
                 <p class="muted">Zatím zde nejsou žádné uložené zápisy.</p>
             <?php endif; ?>
         </aside>
+        <?php endif; ?>
     </section>
 </main>
 <?php renderFooter(); ?>

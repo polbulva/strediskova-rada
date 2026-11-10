@@ -1,18 +1,70 @@
 (function () {
+    var MAX_LEVEL = 5;
+
+    function level(row) { return parseInt(row.dataset.level, 10) || 1; }
+
+    function setLevel(row, value) {
+        row.dataset.level = String(value);
+        row.querySelector('[data-field="level"]').value = String(value);
+    }
+
+    function block(row) {
+        var rows = [row];
+        for (var n = row.nextElementSibling; n && level(n) > level(row); n = n.nextElementSibling) {
+            rows.push(n);
+        }
+        return rows;
+    }
+
     function reindex(container) {
         var name = container.dataset.name;
         Array.prototype.forEach.call(container.children, function (row, index) {
             Array.prototype.forEach.call(row.querySelectorAll('[data-field]'), function (input) {
-                if (input.dataset.field === 'level') {
-                    return;
-                }
                 input.name = name + '[' + index + '][' + input.dataset.field + ']';
             });
-            var level = row.querySelector('[data-field="level"]');
-            if (level) {
-                level.name = name + '[' + index + '][level]';
-                row.dataset.level = level.value;
+            var field = row.querySelector('[data-field="level"]');
+            if (field) {
+                row.dataset.level = field.value;
             }
+        });
+        normalize(container);
+        applyCollapse(container);
+    }
+
+    function normalize(container) {
+        var previous = 0;
+        Array.prototype.forEach.call(container.children, function (row) {
+            if (!row.classList.contains('item-row')) { return; }
+            var wanted = Math.max(1, Math.min(level(row), previous + 1, MAX_LEVEL));
+            if (wanted !== level(row)) { setLevel(row, wanted); }
+            previous = wanted;
+        });
+    }
+
+    function applyCollapse(container) {
+        var hideBelow = Infinity;
+        var previous = null;
+        Array.prototype.forEach.call(container.children, function (row) {
+            if (!row.classList.contains('item-row')) { return; }
+            var current = level(row);
+            if (current > hideBelow) {
+                row.hidden = true;
+            } else {
+                hideBelow = Infinity;
+                row.hidden = false;
+            }
+            var subs = block(row).length - 1;
+            row.classList.toggle('has-subs', subs > 0);
+            row.querySelector('.collapse-count').textContent = row.classList.contains('collapsed') && subs ? '(' + subs + ')' : '';
+            if (row.classList.contains('collapsed') && subs > 0 && hideBelow === Infinity) {
+                hideBelow = current;
+            }
+            var deepest = Math.max.apply(null, block(row).map(level));
+            var indent = row.querySelector('[data-action="indent"]');
+            var outdent = row.querySelector('[data-action="outdent"]');
+            if (indent) { indent.disabled = !previous || level(previous) < current || deepest + 1 > MAX_LEVEL; }
+            if (outdent) { outdent.disabled = current <= 1; }
+            previous = row;
         });
     }
 
@@ -33,28 +85,42 @@
         }
 
         var button = event.target.closest('[data-action]');
-        if (!button) {
+        if (!button || button.disabled) {
             return;
         }
         var row = button.closest('.item-row, .resolution-row, .event-row');
         var parent = row.parentElement;
-        if (button.dataset.action === 'remove') {
+        var action = button.dataset.action;
+        var isItem = row.classList.contains('item-row');
+        var rows = isItem ? block(row) : [row];
+        var end = rows[rows.length - 1];
+
+        if (action === 'remove') {
             row.remove();
-        } else if (button.dataset.action === 'up' && row.previousElementSibling) {
-            parent.insertBefore(row, row.previousElementSibling);
-        } else if (button.dataset.action === 'down' && row.nextElementSibling) {
-            parent.insertBefore(row.nextElementSibling, row);
+        } else if (action === 'toggle') {
+            row.classList.toggle('collapsed');
+        } else if (action === 'indent' || action === 'outdent') {
+            var delta = action === 'indent' ? 1 : -1;
+            rows.forEach(function (r) { setLevel(r, level(r) + delta); });
+        } else if (action === 'up') {
+            var before = row.previousElementSibling;
+            if (isItem) {
+                while (before && level(before) > level(row)) { before = before.previousElementSibling; }
+                if (!before || level(before) !== level(row)) { before = null; }
+            }
+            if (before) {
+                rows.forEach(function (r) { parent.insertBefore(r, before); });
+            }
+        } else if (action === 'down') {
+            var next = end.nextElementSibling;
+            if (next && (!isItem || level(next) === level(row))) {
+                var after = isItem ? block(next).pop().nextElementSibling : next.nextElementSibling;
+                rows.forEach(function (r) { parent.insertBefore(r, after); });
+            }
         }
         reindex(parent);
     });
-
-    document.addEventListener('change', function (event) {
-        if (event.target.matches('[data-field="level"]')) {
-            reindex(event.target.closest('[data-name]'));
-        }
-    });
 })();
-
 (function () {
     var dialog = document.getElementById('sch-dialog');
     if (!dialog || !window.SCHEDULE) {

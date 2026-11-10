@@ -32,7 +32,7 @@ function saveAgendaTemplate(PDO $pdo, array $existing, array $new): void
             }
             $update->execute([
                 'title' => $title,
-                'level' => (int) ($row['level'] ?? 1) === 2 ? 2 : 1,
+                'level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))),
                 'carry' => empty($row['carry']) ? 0 : 1,
                 'position' => ++$position,
                 'id' => (int) $id,
@@ -42,7 +42,7 @@ function saveAgendaTemplate(PDO $pdo, array $existing, array $new): void
         foreach ($new as $row) {
             $title = is_array($row) ? mb_substr(trim((string) ($row['title'] ?? '')), 0, 255) : '';
             if ($title !== '') {
-                $insert->execute(['level' => (int) ($row['level'] ?? 1) === 2 ? 2 : 1, 'title' => $title, 'carry' => empty($row['carry']) ? 0 : 1, 'position' => ++$position]);
+                $insert->execute(['level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))), 'title' => $title, 'carry' => empty($row['carry']) ? 0 : 1, 'position' => ++$position]);
             }
         }
         $pdo->commit();

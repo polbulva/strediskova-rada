@@ -27,6 +27,8 @@ const DEFAULT_AGENDA = [
     [1, 'Různé'],
 ];
 
+const MAX_ITEM_LEVEL = 5;
+
 const CLOSING_TEXT = 'Díky všem za účast na radě, poznamenejte si prosím všechny akce do svých diářů (mobilů, facebooků atd.).';
 
 function formatDate(?string $date): string
@@ -133,30 +135,32 @@ function buildAgenda(array $previousItems, ?array $template = null): array
         $items[] = $item;
     }
 
-    // Podbod se páruje jen v rámci stejného nadřazeného bodu.
-    $find = static function (array $list, int $level, string $title, ?string $parentTitle = null): ?int {
-        $currentParent = null;
+    $pathOf = static function (array $list): array {
+        $stack = [];
+        $paths = [];
         foreach ($list as $index => $item) {
-            if ($item['level'] === 1) {
-                $currentParent = $item['title'];
-            }
-            if (itemKey($item['level'], $item['title']) !== itemKey($level, $title)) {
-                continue;
-            }
-            if ($level === 1 || $parentTitle === null
-                || itemKey(1, (string) $currentParent) === itemKey(1, $parentTitle)) {
-                return $index;
-            }
+            $level = (int) $item['level'];
+            $stack = array_slice($stack, 0, $level - 1);
+            $stack[$level - 1] = mb_strtolower(trim($item['title']));
+            $paths[$index] = implode('>', $stack);
         }
-        return null;
+        return $paths;
     };
 
-    $parent = null;
-    foreach ($previousItems as $previous) {
-        $level = (int) $previous['level'];
-        if ($level === 1) {
-            $parent = $previous['title'];
+    $subtreeEnd = static function (array $list, int $index): int {
+        $level = (int) $list[$index]['level'];
+        $end = $index + 1;
+        while ($end < count($list) && (int) $list[$end]['level'] > $level) {
+            $end++;
         }
+        return $end;
+    };
+
+    $stack = [];
+    foreach ($previousItems as $previous) {
+        $level = max(1, min(MAX_ITEM_LEVEL, (int) $previous['level']));
+        $stack = array_slice($stack, 0, $level - 1);
+        $stack[$level - 1] = $previous['title'];
         $isAlways = isset($always[itemKey($level, $previous['title'])]);
         if (!$previous['carry_over'] && !$isAlways) {
             continue;
@@ -170,26 +174,28 @@ function buildAgenda(array $previousItems, ?array $template = null): array
             'carried' => 1,
         ];
 
-        $existing = $find($items, $level, $previous['title'], $parent);
-        if ($existing !== null) {
+        $key = implode('>', array_map(static fn (string $s): string => mb_strtolower(trim($s)), $stack));
+        $existing = array_search($key, $pathOf($items), true);
+        if ($existing !== false) {
             $items[$existing] = $carried;
             continue;
         }
 
-        if ($level === 2 && $parent !== null) {
-            $parentIndex = $find($items, 1, $parent);
-            if ($parentIndex === null) {
-                $items[] = emptyItem(1, $parent);
-                $parentIndex = count($items) - 1;
+        // Chybějící nadřazené body se doplní a podbod se vloží na konec jejich větve.
+        $insertAt = count($items);
+        for ($depth = 1; $depth < $level; $depth++) {
+            $ancestorKey = implode('>', array_map(
+                static fn (string $s): string => mb_strtolower(trim($s)),
+                array_slice($stack, 0, $depth)
+            ));
+            $ancestor = array_search($ancestorKey, $pathOf($items), true);
+            if ($ancestor === false) {
+                array_splice($items, $insertAt, 0, [emptyItem($depth, $stack[$depth - 1])]);
+                $ancestor = $insertAt;
             }
-            $insertAt = $parentIndex + 1;
-            while ($insertAt < count($items) && $items[$insertAt]['level'] === 2) {
-                $insertAt++;
-            }
-            array_splice($items, $insertAt, 0, [$carried]);
-        } else {
-            $items[] = $carried;
+            $insertAt = $subtreeEnd($items, $ancestor);
         }
+        array_splice($items, $insertAt, 0, [$carried]);
     }
 
     return $items;
@@ -198,22 +204,25 @@ function buildAgenda(array $previousItems, ?array $template = null): array
 function numberedItems(array $items): array
 {
     $result = [];
-    $chapter = 0;
-    $sub = 0;
+    $counters = array_fill(1, MAX_ITEM_LEVEL, 0);
     foreach ($items as $item) {
-        if ((int) $item['level'] === 1) {
-            $chapter++;
-            $sub = 0;
-            $item['label'] = $chapter . '.';
-        } else {
-            $sub++;
-            $item['label'] = (chr(96 + min($sub, 26))) . ')';
+        $level = max(1, min(MAX_ITEM_LEVEL, (int) $item['level']));
+        $counters[$level]++;
+        for ($deeper = $level + 1; $deeper <= MAX_ITEM_LEVEL; $deeper++) {
+            $counters[$deeper] = 0;
         }
+        $n = $counters[$level];
+        $item['label'] = match ($level) {
+            1 => $n . '.',
+            2 => chr(96 + min($n, 26)) . ')',
+            3 => $n . ')',
+            4 => '(' . chr(96 + min($n, 26)) . ')',
+            default => '–',
+        };
         $result[] = $item;
     }
     return $result;
 }
-
 function renderItemRow(string $index, array $item): string
 {
     $level = (int) ($item['level'] ?? 1);
@@ -224,14 +233,14 @@ function renderItemRow(string $index, array $item): string
 
     return '<div class="item-row" data-level="' . $level . '">'
         . '<div class="item-head">'
-        . '<select data-field="level" aria-label="Úroveň bodu">'
-        . '<option value="1"' . ($level === 1 ? ' selected' : '') . '>Bod</option>'
-        . '<option value="2"' . ($level === 2 ? ' selected' : '') . '>Podbod</option>'
-        . '</select>'
+        . '<button type="button" class="collapse-toggle" data-action="toggle" title="Sbalit / rozbalit podbody">▾<span class="collapse-count"></span></button>'
+        . '<input type="hidden" data-field="level" value="' . $level . '">'
         . '<input type="text" data-field="title" name="items[' . h($index) . '][title]" maxlength="255" placeholder="Název bodu" value="' . h($item['title'] ?? '') . '">'
         . '<div class="item-actions">'
-        . '<button type="button" data-action="up" title="Posunout nahoru">↑</button>'
-        . '<button type="button" data-action="down" title="Posunout dolů">↓</button>'
+        . '<button type="button" data-action="up" title="Posunout nahoru (i s podbody)">↑</button>'
+        . '<button type="button" data-action="down" title="Posunout dolů (i s podbody)">↓</button>'
+        . '<button type="button" data-action="outdent" title="Zrušit odsazení (bod)">⇤</button>'
+        . '<button type="button" data-action="indent" title="Odsadit (podbod)">⇥</button>'
         . '<button type="button" data-action="remove" title="Odebrat">✕</button>'
         . '</div></div>'
         . '<textarea data-field="notes" name="items[' . h($index) . '][notes]" rows="4" placeholder="Poznámky – každý řádek je odrážka, odsazení dvěma mezerami vytvoří podbod">' . h($item['notes'] ?? '') . '</textarea>'
@@ -375,7 +384,7 @@ function parseItems(mixed $input): array
             continue;
         }
         $items[] = [
-            'level' => ((int) ($row['level'] ?? 1)) === 2 ? 2 : 1,
+            'level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))),
             'title' => mb_substr($title, 0, 255),
             'notes' => trim(str_replace("\r\n", "\n", (string) ($row['notes'] ?? ''))),
             'carry_over' => !empty($row['carry']) ? 1 : 0,

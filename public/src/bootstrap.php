@@ -103,8 +103,14 @@ function removeLogo(): void
 /** Uloží nahrané logo; vrací chybovou zprávu nebo null. */
 function saveUploadedLogo(array $file): ?string
 {
-    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
-        return 'Soubor se nepodařilo nahrát (maximální velikost může omezovat hosting).';
+    $code = $file['error'] ?? UPLOAD_ERR_NO_FILE;
+    if ($code !== UPLOAD_ERR_OK) {
+        return match ($code) {
+            UPLOAD_ERR_NO_FILE => 'Nevybrali jste žádný soubor.',
+            UPLOAD_ERR_INI_SIZE, UPLOAD_ERR_FORM_SIZE => 'Soubor je větší než limit hostingu (upload_max_filesize = ' . ini_get('upload_max_filesize') . '). Zmenšete logo.',
+            UPLOAD_ERR_NO_TMP_DIR, UPLOAD_ERR_CANT_WRITE => 'Hosting nemá dočasnou složku pro nahrávání nebo do ní nelze zapisovat (kód ' . $code . ').',
+            default => 'Soubor se nepodařilo nahrát (kód chyby ' . $code . ').',
+        };
     }
     if ($file['size'] > 2 * 1024 * 1024) {
         return 'Logo může mít nejvýše 2 MB.';
@@ -118,9 +124,11 @@ function saveUploadedLogo(array $file): ?string
     if (!is_dir($directory) && !@mkdir($directory, 0755, true)) {
         return 'Složku uploads se nepodařilo vytvořit. Vytvořte ji na FTP a povolte zápis.';
     }
-    if (!is_file($directory . '/.htaccess')) {
-        @file_put_contents($directory . '/.htaccess', "php_flag engine off\nRemoveHandler .php .phtml\n<FilesMatch \"\\.(php|phtml|phar)$\">\n    Require all denied\n</FilesMatch>\n");
+    if (!is_writable($directory)) {
+        return 'Do složky uploads nelze zapisovat. Na FTP jí nastavte oprávnění 755 nebo 775 (případně 777).';
     }
+    $htaccess = "<FilesMatch \"\\.(php|phtml|phar)$\">\n    <IfModule mod_authz_core.c>\n        Require all denied\n    </IfModule>\n    <IfModule !mod_authz_core.c>\n        Order allow,deny\n        Deny from all\n    </IfModule>\n</FilesMatch>\n";
+    @file_put_contents($directory . '/.htaccess', $htaccess);
     removeLogo();
     if (!@move_uploaded_file($file['tmp_name'], $directory . '/logo.' . $extension)) {
         return 'Logo se nepodařilo uložit. Zkontrolujte oprávnění složky uploads.';
