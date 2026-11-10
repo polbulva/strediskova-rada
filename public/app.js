@@ -240,3 +240,53 @@
         });
     });
 })();
+
+(() => {
+    document.querySelectorAll('[data-sign]').forEach((pad) => {
+        const canvas = pad.querySelector('canvas');
+        const input = pad.querySelector('input[type="hidden"]');
+        const ctx = canvas.getContext('2d');
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.strokeStyle = '#111';
+        let drawing = false;
+
+        if (input.value) {
+            const image = new Image();
+            image.onload = () => ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+            image.src = input.value;
+        }
+
+        const point = (event) => {
+            const rect = canvas.getBoundingClientRect();
+            return [(event.clientX - rect.left) * canvas.width / rect.width, (event.clientY - rect.top) * canvas.height / rect.height];
+        };
+        canvas.addEventListener('pointerdown', (event) => {
+            drawing = true;
+            canvas.setPointerCapture(event.pointerId);
+            const [x, y] = point(event);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + 0.1, y);
+            ctx.stroke();
+        });
+        canvas.addEventListener('pointermove', (event) => {
+            if (!drawing) return;
+            const [x, y] = point(event);
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        });
+        const stop = () => {
+            if (!drawing) return;
+            drawing = false;
+            input.value = canvas.toDataURL('image/png');
+        };
+        canvas.addEventListener('pointerup', stop);
+        canvas.addEventListener('pointercancel', stop);
+        pad.querySelector('[data-sign-clear]').addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            input.value = '';
+        });
+    });
+})();

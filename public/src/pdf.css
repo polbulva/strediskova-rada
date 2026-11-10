@@ -1,0 +1,35 @@
+@page { margin: 18mm 16mm 18mm 16mm; }
+body { font-family: "SkautFont", "DejaVu Sans", sans-serif; font-size: 10pt; color: #1b1b1b; line-height: 1.4; }
+h2, h3, h4 { margin: 0; }
+.doc-logo { max-height: 22mm; max-width: 60mm; margin: 0 0 8px; }
+.doc-title { font-size: 17pt; color: #184d38; margin: 0 0 10px; }
+.doc-meta { margin: 0 0 6px; }
+.doc-meta span { margin-right: 22px; }
+h3 { font-size: 12pt; margin: 14px 0 4px; color: #184d38; }
+h4 { font-size: 10.5pt; margin: 10px 0 3px; color: #28714e; }
+.doc-item h3 { padding-bottom: 3px; border-bottom: 1.5px solid #184d38; }
+.doc-item { page-break-inside: auto; }
+.doc-item.level-2 { margin-left: 14px; }
+.doc-item.level-3 { margin-left: 28px; }
+.doc-item.level-4 { margin-left: 42px; }
+.doc-item.level-5 { margin-left: 56px; }
+.doc-item ul { margin: 3px 0; padding-left: 18px; }
+.toc { margin: 0; padding: 0; list-style: none; }
+.toc li { margin: 1px 0; }
+.toc li.level-2 { padding-left: 18px; }
+.toc li.level-3 { padding-left: 36px; }
+.toc li.level-4 { padding-left: 54px; }
+.toc li.level-5 { padding-left: 72px; }
+.doc-table { width: 100%; border-collapse: collapse; margin: 6px 0 10px; font-size: 9pt; }
+.doc-table caption { text-align: left; font-weight: bold; padding: 3px 0; }
+.doc-table th, .doc-table td { border: 1px solid #9fb0a5; padding: 4px 6px; text-align: left; vertical-align: top; }
+.doc-table th { background: #eef3ee; }
+.muted { color: #5a6a60; }
+.carry-tag { color: #7a5a00; font-size: 8.5pt; font-weight: bold; margin: 3px 0; }
+.resolution { margin: 6px 0 10px; padding: 4px 10px; border-left: 3px solid #b7d8c6; }
+.votes-line { font-weight: bold; }
+.doc-footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #c9d2c5; }
+.signatures span { margin-right: 40px; }
+.pdf-room { margin: 8px 0 2px; }
+a { color: #184d38; text-decoration: none; }
+.sign-img { height: 18mm; margin-top: 4px; }

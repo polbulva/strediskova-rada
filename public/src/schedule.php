@@ -278,13 +278,55 @@ function renderScheduleDialog(string $season, array $clubrooms, array $categorie
 }
 
 /** Rozvrh pro zobrazení v zápisu (jen ke čtení). */
-function renderSeasonTimetables(string $season): string
+/** Tabulková varianta rozvrhu pro PDF (Dompdf nezná CSS grid). */
+function renderTimetablesPdf(array $clubrooms, array $meetings): string
+{
+    $sections = [];
+    foreach ($clubrooms as $room) {
+        $sections[(int) $room['id']] = $room['label'];
+    }
+    $byRoom = [];
+    foreach ($meetings as $m) {
+        $byRoom[(int) $m['clubroom_id']][(int) $m['weekday']][] = $m;
+        if (!isset($sections[(int) $m['clubroom_id']])) {
+            $sections[(int) $m['clubroom_id']] = 'Bez klubovny';
+        }
+    }
+
+    $html = '';
+    foreach ($sections as $roomId => $roomLabel) {
+        if (empty($byRoom[$roomId])) {
+            continue;
+        }
+        $html .= '<p class="pdf-room"><strong>' . h($roomLabel) . '</strong></p><table class="doc-table"><tbody>';
+        foreach (WEEKDAYS as $day => $dayName) {
+            if (empty($byRoom[$roomId][$day])) {
+                continue;
+            }
+            $cells = [];
+            foreach ($byRoom[$roomId][$day] as $m) {
+                $time = $m['time_from'] ? substr($m['time_from'], 0, 5) . ($m['time_to'] ? '–' . substr($m['time_to'], 0, 5) : '') : '';
+                $meta = trim(($m['category_label'] ?? '') . ($m['age_text'] !== '' ? ' · ' . $m['age_text'] : ''), ' ·');
+                $cells[] = '<strong>' . h(trim($time . ' ' . $m['group_name'])) . '</strong>'
+                    . ($meta !== '' ? ' <span class="muted">(' . h($meta) . ')</span>' : '')
+                    . ($m['leaders'] !== '' ? '<br>' . h($m['leaders']) : '');
+            }
+            $html .= '<tr><th>' . h($dayName) . '</th><td>' . implode('<br><br>', $cells) . '</td></tr>';
+        }
+        $html .= '</tbody></table>';
+    }
+    return $html;
+}
+function renderSeasonTimetables(string $season, bool $forPdf = false): string
 {
     try {
         $pdo = databaseConnection();
         $meetings = loadGroupMeetings($pdo, $season);
         if (!$meetings) {
             return '<p class="muted">Rozvrh schůzek pro sezónu ' . h($season) . ' zatím není vyplněn.</p>';
+        }
+        if ($forPdf) {
+            return renderTimetablesPdf(loadLookups($pdo, 'clubroom'), $meetings);
         }
         return '<div class="tt-wrap">' . renderTimetables(loadLookups($pdo, 'clubroom'), $meetings, false) . '</div>';
     } catch (Throwable $exception) {

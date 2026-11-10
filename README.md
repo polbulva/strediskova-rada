@@ -21,6 +21,10 @@ usnesení s hlasováním, termín další rady a podpisy (zapsal, ověřil).
 - Uložený zápis lze **upravit**, **smazat** nebo vytisknout tlačítkem
   **Tisknout** (v prohlížeči pak lze zvolit uložení do PDF).
 
+## PDF zápisu
+
+Tlačítko **Stáhnout PDF** u zápisu vytvoří PDF ze stejné šablony jako náhled (logo, osnova, akce, rozvrh, usnesení). Vlastní písmo nahrajte FTP do public/fonts/ pod názvy ont-regular.ttf (povinný), ont-bold.ttf, ont-italic.ttf, ont-bolditalic.ttf; musí obsahovat české znaky. Bez něj se použije DejaVu Sans. Vzhled PDF se upravuje v public/src/pdf.css. Vyžaduje PHP s rozšířeními dom, mbstring (a ideálně gd pro logo).
+
 ## Struktura projektu
 
 ```
@@ -29,9 +33,11 @@ public/                  vše, co se nahrává na FTP
   login.php, logout.php  návrat ze skautISu, testovací vstup, odhlášení
   portal.php             rozcestník (dlaždice podle oprávnění role)
   minutes.php            zápisy z rady
+  minutes_pdf.php        export zápisu do PDF (Dompdf)
+  fonts/                 vlastní písmo pro PDF (font-regular.ttf, font-bold.ttf, …)
   admin.php              administrace oprávnění rolí
   app.js, style.css
-  src/                   bootstrap, skautis (klient), auth (oprávnění), layout, lib (zápisy)
+  src/                   vendor/ (Dompdf 3.1.6, LGPL), pdf.css (vzhled PDF), minutes_document.php (společná šablona zápisu), bootstrap, skautis (klient), auth (oprávnění), layout, lib (zápisy)
   config/                config.example.php (šablona); config.php je mimo Git
 database/migrations/   očíslované SQL skripty pro MySQL (spouštějí se ručně po řadě, nenahrávají se na FTP)
 ```

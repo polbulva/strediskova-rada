@@ -261,3 +261,8 @@ select { width: 100%; padding: 10px 12px; border: 1px solid #c8d4c9; border-radi
 .agenda-row.lvl-4 { margin-left: 84px; background: #f7f9f5; }
 .agenda-row.lvl-5 { margin-left: 112px; background: #f7f9f5; }
 .item-row button:disabled, .agenda-row button:disabled { opacity: .35; cursor: not-allowed; }
+
+.sign-row { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 0; }
+.sign-pad { display: grid; gap: 6px; max-width: 420px; }
+.sign-pad canvas { width: 100%; max-width: 400px; aspect-ratio: 8 / 3; border: 1px dashed #8aa595; border-radius: 8px; background: #fff; touch-action: none; cursor: crosshair; }
+.sign-img { height: 70px; max-width: 260px; margin-top: 6px; }

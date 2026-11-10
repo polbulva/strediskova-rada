@@ -262,6 +262,11 @@ function renderResolutionRow(string $index, array $resolution): string
         . '</div></div>';
 }
 
+function validSignature(string $value): ?string
+{
+    return strlen($value) < 300000 && preg_match('~^data:image/png;base64,[A-Za-z0-9+/=]+$~', $value) ? $value : null;
+}
+
 function loadMeeting(PDO $pdo, int $id): ?array
 {
     $statement = $pdo->prepare('SELECT * FROM meetings WHERE id = :id');
@@ -305,6 +310,8 @@ function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resoluti
         'next_meeting_time' => $v['next_meeting_time'] ?: null,
         'author' => $v['author'] ?: null,
         'verifier' => $v['verifier'] ?: null,
+        'author_signature' => validSignature($v['author_signature'] ?? ''),
+        'verifier_signature' => validSignature($v['verifier_signature'] ?? ''),
         'calendar_event_key' => ($v['calendar_event_key'] ?? '') ?: null,
     ];
 
@@ -313,9 +320,9 @@ function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resoluti
         if ($id === null) {
             $pdo->prepare(
                 'INSERT INTO meetings (meeting_number, season, meeting_date, time_from, time_to, place, attendees,
-                    online_attendees, absentees, next_meeting_date, next_meeting_time, author, verifier, calendar_event_key)
+                    online_attendees, absentees, next_meeting_date, next_meeting_time, author, verifier, author_signature, verifier_signature, calendar_event_key)
                  VALUES (:meeting_number, :season, :meeting_date, :time_from, :time_to, :place, :attendees,
-                    :online_attendees, :absentees, :next_meeting_date, :next_meeting_time, :author, :verifier, :calendar_event_key)'
+                    :online_attendees, :absentees, :next_meeting_date, :next_meeting_time, :author, :verifier, :author_signature, :verifier_signature, :calendar_event_key)'
             )->execute($params);
             $id = (int) $pdo->lastInsertId();
         } else {
@@ -325,7 +332,7 @@ function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resoluti
                     time_from = :time_from, time_to = :time_to, place = :place, attendees = :attendees,
                     online_attendees = :online_attendees, absentees = :absentees,
                     next_meeting_date = :next_meeting_date, next_meeting_time = :next_meeting_time,
-                    author = :author, verifier = :verifier, calendar_event_key = :calendar_event_key                 WHERE id = :id'
+                    author = :author, verifier = :verifier, author_signature = :author_signature, verifier_signature = :verifier_signature, calendar_event_key = :calendar_event_key                 WHERE id = :id'
             )->execute($params);
             $pdo->prepare('DELETE FROM meeting_items WHERE meeting_id = :id')->execute(['id' => $id]);
             $pdo->prepare('DELETE FROM meeting_resolutions WHERE meeting_id = :id')->execute(['id' => $id]);
