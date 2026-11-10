@@ -207,7 +207,7 @@ function meetingCardHtml(array $m, bool $editable): string
         . '</div>';
 }
 
-/** Rozvrh schůzek ve stylu školního rozvrhu, pro každou klubovnu zvlášť. */
+/** Rozpis schůzek ve stylu školního rozpisu, pro každou klubovnu zvlášť. */
 function renderTimetables(array $clubrooms, array $meetings, bool $editable): string
 {
     $byRoom = [];
@@ -288,8 +288,8 @@ function renderScheduleDialog(string $season, array $clubrooms, array $categorie
         . '</div></form></dialog>';
 }
 
-/** Rozvrh pro zobrazení v zápisu (jen ke čtení). */
-/** Tabulková varianta rozvrhu pro PDF (Dompdf nezná CSS grid). */
+/** Rozpis pro zobrazení v zápisu (jen ke čtení). */
+/** Tabulková varianta rozpisu pro PDF (Dompdf nezná CSS grid). */
 function renderTimetablesPdf(array $clubrooms, array $meetings): string
 {
     $sections = [];
@@ -328,19 +328,22 @@ function renderTimetablesPdf(array $clubrooms, array $meetings): string
     }
     return $html;
 }
-function renderSeasonTimetables(string $season, bool $forPdf = false): string
+function renderSeasonTimetables(string $season, bool $forPdf = false, bool $editable = false): string
 {
     try {
         $pdo = databaseConnection();
         $meetings = loadGroupMeetings($pdo, $season);
+        if ($editable && !$forPdf) {
+            return '<div class="tt-wrap" data-tt-live>' . renderTimetables(loadLookups($pdo, 'clubroom'), $meetings, true) . '</div>';
+        }
         if (!$meetings) {
-            return '<p class="muted">Rozvrh schůzek pro sezónu ' . h($season) . ' zatím není vyplněn.</p>';
+            return '<p class="muted">Rozpis schůzek pro sezónu ' . h($season) . ' zatím není vyplněn.</p>';
         }
         if ($forPdf) {
             return renderTimetablesPdf(loadLookups($pdo, 'clubroom'), $meetings);
         }
         return '<div class="tt-wrap">' . renderTimetables(loadLookups($pdo, 'clubroom'), $meetings, false) . '</div>';
     } catch (Throwable $exception) {
-        return '<p class="muted">Rozvrh schůzek se nepodařilo načíst.</p>';
+        return '<p class="muted">Rozpis schůzek se nepodařilo načíst.</p>';
     }
 }

@@ -32,6 +32,7 @@ $chapters = count(array_filter($numbered, static fn (array $item): bool => (int)
                 </ol>
             <?php endif; ?>
 
+            <?php $shownTypes = []; ?>
             <?php foreach ($numbered as $item): ?>
                 <section class="doc-item level-<?= (int) $item['level'] ?>">
                     <?php if ((int) $item['level'] === 1): ?>
@@ -40,20 +41,29 @@ $chapters = count(array_filter($numbered, static fn (array $item): bool => (int)
                         <h4><?= h($item['label']) ?> <?= h($item['title']) ?></h4>
                     <?php endif; ?>
                     <?= renderNotes($item['notes']) ?>
-                    <?php if ((int) $item['level'] >= 2 && mb_strtolower(trim($item['title'])) === 'vedoucí družin a družiny'): ?>
-                        <?= renderSeasonTimetables($meeting['season'], $pdfMode) ?>
-                    <?php endif; ?>
-                    <?php $titleLower = mb_strtolower($item['title']); ?>
-                    <?php if (str_contains($titleLower, 'výprav')): ?>
-                        <?= renderTripTables($meeting['trips'] ?? []) ?>
-                    <?php elseif (str_contains($titleLower, 'proběhlé akce')): ?>
-                        <?= renderPastEventsTable($meeting['events_past']) ?>
-                    <?php elseif (str_contains($titleLower, 'chystané akce')): ?>
-                        <?= renderUpcomingEventsTable($meeting['events_upcoming']) ?>
+                    <?php $type = $item['item_type'] ?? ''; ?>
+                    <?php if ($type !== '' && empty($shownTypes[$type])): ?>
+                        <?php $shownTypes[$type] = true; ?>
+                        <?php if ($type === 'timetable'): ?>
+                            <?= renderSeasonTimetables($meeting['season'], $pdfMode) ?>
+                        <?php elseif ($type === 'trips'): ?>
+                            <?= renderTripTables($meeting['trips'] ?? []) ?>
+                        <?php elseif ($type === 'past'): ?>
+                            <?= renderPastEventsTable($meeting['events_past']) ?>
+                        <?php elseif ($type === 'upcoming'): ?>
+                            <?= renderUpcomingEventsTable($meeting['events_upcoming']) ?>
+                        <?php endif; ?>
                     <?php endif; ?>
                     <?php if ($item['carry_over']): ?><p class="carry-tag">↻ Řešit na další radě</p><?php endif; ?>
                 </section>
             <?php endforeach; ?>
+
+            <?php if (empty($shownTypes['trips']) && !empty($meeting['trips'])): ?>
+                <section class="doc-item level-1">
+                    <h3>Výpravy</h3>
+                    <?= renderTripTables($meeting['trips']) ?>
+                </section>
+            <?php endif; ?>
 
             <?php if ($meeting['resolutions']): ?>
                 <section class="doc-item level-1">

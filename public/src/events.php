@@ -4,9 +4,9 @@
 function loadAgendaTemplate(PDO $pdo): array
 {
     try {
-        $rows = $pdo->query('SELECT level, title, always_carry FROM agenda_template ORDER BY position, id')->fetchAll();
+        $rows = $pdo->query('SELECT level, title, always_carry, item_type FROM agenda_template ORDER BY position, id')->fetchAll();
         if ($rows) {
-            return array_map(static fn (array $row): array => [(int) $row['level'], $row['title'], (int) $row['always_carry']], $rows);
+            return array_map(static fn (array $row): array => [(int) $row['level'], $row['title'], (int) $row['always_carry'], $row['item_type']], $rows);
         }
     } catch (Throwable $exception) {
         // tabulka nemusí existovat
@@ -19,7 +19,7 @@ function saveAgendaTemplate(PDO $pdo, array $existing, array $new): void
     $pdo->beginTransaction();
     try {
         $position = 0;
-        $update = $pdo->prepare('UPDATE agenda_template SET title = :title, level = :level, always_carry = :carry, position = :position WHERE id = :id');
+        $update = $pdo->prepare('UPDATE agenda_template SET title = :title, level = :level, always_carry = :carry, item_type = :type, position = :position WHERE id = :id');
         $delete = $pdo->prepare('DELETE FROM agenda_template WHERE id = :id');
         foreach ($existing as $id => $row) {
             if (!ctype_digit((string) $id) || !is_array($row)) {
@@ -34,15 +34,16 @@ function saveAgendaTemplate(PDO $pdo, array $existing, array $new): void
                 'title' => $title,
                 'level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))),
                 'carry' => empty($row['carry']) ? 0 : 1,
+                'type' => itemTypeOrEmpty($row['type'] ?? ''),
                 'position' => ++$position,
                 'id' => (int) $id,
             ]);
         }
-        $insert = $pdo->prepare('INSERT INTO agenda_template (level, title, always_carry, position) VALUES (:level, :title, :carry, :position)');
+        $insert = $pdo->prepare('INSERT INTO agenda_template (level, title, always_carry, item_type, position) VALUES (:level, :title, :carry, :type, :position)');
         foreach ($new as $row) {
             $title = is_array($row) ? mb_substr(trim((string) ($row['title'] ?? '')), 0, 255) : '';
             if ($title !== '') {
-                $insert->execute(['level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))), 'title' => $title, 'carry' => empty($row['carry']) ? 0 : 1, 'position' => ++$position]);
+                $insert->execute(['level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))), 'title' => $title, 'carry' => empty($row['carry']) ? 0 : 1, 'type' => itemTypeOrEmpty($row['type'] ?? ''), 'position' => ++$position]);
             }
         }
         $pdo->commit();

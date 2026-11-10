@@ -33,3 +33,9 @@ h4 { font-size: 10.5pt; margin: 10px 0 3px; color: #28714e; }
 .pdf-room { margin: 8px 0 2px; }
 a { color: #184d38; text-decoration: none; }
 .sign-img { height: 18mm; margin-top: 4px; }
+.rich p { margin: 3px 0; }
+.rich ul, .rich ol { margin: 3px 0; padding-left: 18px; }
+.rich table { border-collapse: collapse; margin: 6px 0; }
+.rich th, .rich td { border: 1px solid #9fb0a5; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
+.rich th { background: #eef3ee; }
+.rich img { max-width: 100%; }

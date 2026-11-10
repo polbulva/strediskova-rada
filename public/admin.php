@@ -82,12 +82,19 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Nastavení se nepodařilo uložit. Zkontrolujte, že je databáze aktualizována (tabulka app_settings).';
             }
         }
+    } elseif (($_POST['action'] ?? '') === 'agenda') {
+        try {
+            saveAgendaTemplate($pdo, (array) ($_POST['agenda'] ?? []), (array) ($_POST['agenda_new'] ?? []));
+            flash('Osnova zápisu byla uložena.', 'success');
+            redirect('admin.php?tab=agenda');
+        } catch (Throwable $exception) {
+            $errors[] = 'Osnovu se nepodařilo uložit. Zkontrolujte, že jsou spuštěny všechny skripty z database/migrations.';
+        }
     } elseif (($_POST['action'] ?? '') === 'lookups') {
         try {
             foreach (lookupTypes() as $type => $label) {
                 saveLookups($pdo, $type, (array) ($_POST['lookups'][$type] ?? []), (array) ($_POST['new'][$type] ?? []), (array) ($_POST['newparent'][$type] ?? []));
             }
-            saveAgendaTemplate($pdo, (array) ($_POST['agenda'] ?? []), (array) ($_POST['agenda_new'] ?? []));
             flash('Číselníky byly uloženy.', 'success');
             redirect('admin.php?tab=lookups');
         } catch (Throwable $exception) {
@@ -155,15 +162,15 @@ if ($pdo) {
     }
 }
 
-$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups'];
+$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda'];
 $tab = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($tabByAction[$_POST['action'] ?? ''] ?? 'permissions')
-    : (in_array($_GET['tab'] ?? '', ['permissions', 'lookups', 'connections'], true) ? $_GET['tab'] : 'permissions');
+    : (in_array($_GET['tab'] ?? '', ['permissions', 'lookups', 'agenda', 'connections'], true) ? $_GET['tab'] : 'permissions');
 $lookupData = [];
 $agendaRows = [];
 if ($pdo) {
     try {
-        $agendaRows = $pdo->query('SELECT id, level, title, always_carry FROM agenda_template ORDER BY position, id')->fetchAll();
+        $agendaRows = $pdo->query('SELECT id, level, title, always_carry, item_type FROM agenda_template ORDER BY position, id')->fetchAll();
         foreach (lookupTypes() as $type => $typeLabel) {
             $lookupData[$type] = loadLookups($pdo, $type);
         }
@@ -190,6 +197,7 @@ renderHeader('Administrace', $currentUser);
     <nav class="tabs">
         <a href="admin.php?tab=permissions"<?= $tab === 'permissions' ? ' class="active"' : '' ?>>Oprávnění</a>
         <a href="admin.php?tab=lookups"<?= $tab === 'lookups' ? ' class="active"' : '' ?>>Číselníky</a>
+        <a href="admin.php?tab=agenda"<?= $tab === 'agenda' ? ' class="active"' : '' ?>>Osnova zápisu</a>
         <a href="admin.php?tab=connections"<?= $tab === 'connections' ? ' class="active"' : '' ?>>Připojení</a>
     </nav>
     <?php if ($pdo && $tab === 'connections'): ?>
@@ -269,8 +277,35 @@ renderHeader('Administrace', $currentUser);
                     <?php if ($type === 'group'): ?><label>Oddíl nové družiny <select name="newparent[group][]"><option value="">–</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"><?= h($unit['label']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
                 </section>
             <?php endforeach; ?>
+            <button class="button" type="submit">Uložit číselníky</button>
+        </form>
+        <script>
+        document.addEventListener('click', function (event) {
+            var button = event.target.closest('[data-lookup-move]');
+            if (!button) { return; }
+            var row = button.closest('.lookup-row');
+            var direction = parseInt(button.dataset.lookupMove, 10);
+            if (direction < 0 && row.previousElementSibling) {
+                row.parentElement.insertBefore(row, row.previousElementSibling);
+            } else if (direction > 0 && row.nextElementSibling) {
+                row.parentElement.insertBefore(row.nextElementSibling, row);
+            }
+        });
+        </script>
+    <?php endif; ?>
+    <?php if ($pdo && $tab === 'agenda'): ?>
+        <form method="post" class="admin-form">
+            <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+            <input type="hidden" name="action" value="agenda">
             <?php
-            $agendaRowHtml = static function (string $prefix, array $row): string {
+            $typeSelect = static function (string $base, string $current): string {
+                $html = '<select class="agenda-type" name="' . $base . '[type]" title="Typ bodu">';
+                foreach (ITEM_TYPES as $value => $label) {
+                    $html .= '<option value="' . h($value) . '"' . ($value === $current ? ' selected' : '') . '>' . h($label) . '</option>';
+                }
+                return $html . '</select>';
+            };
+            $agendaRowHtml = static function (string $prefix, array $row) use ($typeSelect): string {
                 $level = max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1)));
                 $id = isset($row['id']) ? (string) (int) $row['id'] : '__N__';
                 $base = $prefix . '[' . $id . ']';
@@ -281,6 +316,7 @@ renderHeader('Administrace', $currentUser);
                     . '<button type="button" data-agenda-indent="1" title="Odsadit (podbod)">⇥</button>'
                     . '<input type="text" maxlength="255" name="' . $base . '[title]" value="' . h($row['title'] ?? '') . '" placeholder="Název bodu">'
                     . '<label class="check" title="Obsah se vždy převezme z předchozího zápisu"><input type="checkbox" name="' . $base . '[carry]" value="1"' . (!empty($row['always_carry']) ? ' checked' : '') . '> Přenášet</label>'
+                    . $typeSelect($base, (string) ($row['item_type'] ?? ''))
                     . (isset($row['id']) ? '<label class="check"><input type="checkbox" name="' . $base . '[delete]" value="1"> Smazat</label>' : '<button type="button" data-agenda-remove title="Odebrat">✕</button>')
                     . '</div>';
             };
@@ -296,20 +332,9 @@ renderHeader('Administrace', $currentUser);
                 <button class="button secondary" type="button" id="agenda-add">+ Přidat bod</button>
                 <template id="agenda-template"><?= $agendaRowHtml('agenda_new', []) ?></template>
             </section>
-            <button class="button" type="submit">Uložit číselníky</button>
+            <button class="button" type="submit">Uložit osnovu</button>
         </form>
         <script>
-        document.addEventListener('click', function (event) {
-            var button = event.target.closest('[data-lookup-move]');
-            if (!button) { return; }
-            var row = button.closest('.lookup-row');
-            var direction = parseInt(button.dataset.lookupMove, 10);
-            if (direction < 0 && row.previousElementSibling) {
-                row.parentElement.insertBefore(row, row.previousElementSibling);
-            } else if (direction > 0 && row.nextElementSibling) {
-                row.parentElement.insertBefore(row.nextElementSibling, row);
-            }
-        });
         (function () {
             var list = document.getElementById('agenda-list');
             if (!list) { return; }

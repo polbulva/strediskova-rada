@@ -20,6 +20,7 @@
         var name = container.dataset.name;
         Array.prototype.forEach.call(container.children, function (row, index) {
             Array.prototype.forEach.call(row.querySelectorAll('[data-field]'), function (input) {
+                if (input.closest('[data-name]') !== container) { return; }
                 input.name = name + '[' + index + '][' + input.dataset.field + ']';
             });
             var field = row.querySelector('[data-field="level"]');
@@ -184,6 +185,33 @@
         }
     });
 
+    function refreshLive() {
+        var live = document.querySelector('[data-tt-live]');
+        return fetch('schedule.php?partial=1&season=' + encodeURIComponent(window.SCHEDULE.season), {credentials: 'same-origin'})
+            .then(function (response) { return response.text(); })
+            .then(function (html) { live.innerHTML = html; });
+    }
+
+    form.addEventListener('submit', function (event) {
+        if (!window.SCHEDULE.ajax) {
+            return;
+        }
+        event.preventDefault();
+        var body = new FormData(form);
+        body.set('action', event.submitter && event.submitter.value ? event.submitter.value : 'save');
+        body.set('ajax', '1');
+        fetch('schedule.php', {method: 'POST', body: body, credentials: 'same-origin'})
+            .then(function (response) { return response.ok ? response.json() : {error: 'Změnu se nepodařilo uložit.'}; })
+            .then(function (result) {
+                if (result.error) {
+                    alert(result.error);
+                    return null;
+                }
+                dialog.close();
+                return refreshLive();
+            });
+    });
+
     document.getElementById('sch-cancel').addEventListener('click', function () {
         dialog.close();
     });
@@ -233,7 +261,11 @@
         body.append('clubroom_id', day.dataset.schRoom);
         fetch('schedule.php', {method: 'POST', body: body, credentials: 'same-origin'}).then(function (response) {
             if (response.status === 204) {
-                location.reload();
+                if (window.SCHEDULE.ajax) {
+                    refreshLive();
+                } else {
+                    location.reload();
+                }
             } else {
                 alert('Přesun se nepodařilo uložit.');
             }
@@ -289,4 +321,152 @@
             input.value = '';
         });
     });
+})();
+
+(() => {
+    const MARKER = '<!--html-->';
+    const MAX_IMAGE = 900;
+
+    document.querySelectorAll('[data-rte]').forEach(initEditor);
+    new MutationObserver((mutations) => {
+        mutations.forEach((m) => m.addedNodes.forEach((node) => {
+            if (node.nodeType !== 1) return;
+            if (node.matches('[data-rte]')) initEditor(node);
+            node.querySelectorAll('[data-rte]').forEach(initEditor);
+        }));
+    }).observe(document.body, { childList: true, subtree: true });
+
+    function initEditor(editor) {
+        if (editor.dataset.ready) return;
+        editor.dataset.ready = '1';
+        const area = editor.querySelector('.rte-area');
+        const hidden = editor.querySelector('input[data-field="notes"]');
+        const file = editor.querySelector('[data-rte-file]');
+
+        const sync = () => {
+            const html = area.innerHTML.trim();
+            const empty = area.textContent.trim() === '' && !area.querySelector('img, table');
+            hidden.value = empty ? '' : MARKER + html;
+        };
+        area.addEventListener('input', sync);
+        area.addEventListener('blur', sync);
+        area.addEventListener('paste', (event) => {
+            const files = Array.from(event.clipboardData ? event.clipboardData.files : []).filter((f) => f.type.startsWith('image/'));
+            if (files.length) {
+                event.preventDefault();
+                files.forEach(insertImage);
+                return;
+            }
+            const text = event.clipboardData ? event.clipboardData.getData('text/plain') : '';
+            if (text) {
+                event.preventDefault();
+                document.execCommand('insertText', false, text);
+            }
+        });
+        const form = editor.closest('form');
+        if (form) form.addEventListener('submit', sync);
+
+        const cell = () => {
+            const selection = window.getSelection();
+            const node = selection.anchorNode && (selection.anchorNode.nodeType === 1 ? selection.anchorNode : selection.anchorNode.parentElement);
+            return node && area.contains(node) ? node.closest('td, th') : null;
+        };
+
+        function insertImage(source) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const image = new Image();
+                image.onload = () => {
+                    const scale = Math.min(1, MAX_IMAGE / Math.max(image.width, image.height));
+                    const canvas = document.createElement('canvas');
+                    canvas.width = Math.round(image.width * scale);
+                    canvas.height = Math.round(image.height * scale);
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = '#fff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+                    area.focus();
+                    document.execCommand('insertImage', false, canvas.toDataURL('image/jpeg', 0.82));
+                    sync();
+                };
+                image.src = reader.result;
+            };
+            reader.readAsDataURL(source);
+        }
+
+        file.addEventListener('change', () => {
+            if (file.files[0]) insertImage(file.files[0]);
+            file.value = '';
+        });
+
+        editor.querySelector('.rte-bar').addEventListener('mousedown', (event) => {
+            if (event.target.closest('button')) event.preventDefault();
+        });
+        editor.querySelector('.rte-bar').addEventListener('click', (event) => {
+            const button = event.target.closest('[data-rte-cmd]');
+            if (!button) return;
+            area.focus();
+            const exec = (command, value) => document.execCommand(command, false, value);
+            const current = cell();
+            switch (button.dataset.rteCmd) {
+                case 'bold': exec('bold'); break;
+                case 'italic': exec('italic'); break;
+                case 'underline': exec('underline'); break;
+                case 'ul': exec('insertUnorderedList'); break;
+                case 'ol': exec('insertOrderedList'); break;
+                case 'indent': exec('indent'); break;
+                case 'outdent': exec('outdent'); break;
+                case 'clear': exec('removeFormat'); break;
+                case 'link': {
+                    const url = window.prompt('Adresa odkazu (https://…):', 'https://');
+                    if (url && /^(https?:\/\/|mailto:)/i.test(url)) exec('createLink', url);
+                    break;
+                }
+                case 'image': file.click(); break;
+                case 'table': {
+                    const rows = parseInt(window.prompt('Počet řádků:', '3'), 10);
+                    const cols = parseInt(window.prompt('Počet sloupců:', '3'), 10);
+                    if (rows > 0 && cols > 0 && rows <= 50 && cols <= 12) {
+                        let html = '<table><tbody>';
+                        for (let r = 0; r < rows; r++) {
+                            html += '<tr>' + (r === 0 ? '<th><br></th>' : '<td><br></td>').repeat(cols) + '</tr>';
+                        }
+                        exec('insertHTML', html + '</tbody></table><p><br></p>');
+                    }
+                    break;
+                }
+                case 'row+': if (current) {
+                    const row = current.parentElement;
+                    const copy = row.cloneNode(true);
+                    copy.querySelectorAll('th, td').forEach((c) => { c.innerHTML = '<br>'; });
+                    row.after(copy);
+                } break;
+                case 'row-': if (current) {
+                    const row = current.parentElement;
+                    const body = row.parentElement;
+                    if (body.children.length > 1) row.remove(); else body.closest('table').remove();
+                } break;
+                case 'col+': if (current) {
+                    const index = current.cellIndex;
+                    current.closest('table').querySelectorAll('tr').forEach((row) => {
+                        const reference = row.cells[index];
+                        if (!reference) return;
+                        const added = document.createElement(reference.tagName.toLowerCase());
+                        added.innerHTML = '<br>';
+                        reference.after(added);
+                    });
+                } break;
+                case 'col-': if (current) {
+                    const index = current.cellIndex;
+                    const table = current.closest('table');
+                    if (current.parentElement.cells.length > 1) {
+                        table.querySelectorAll('tr').forEach((row) => row.cells[index] && row.cells[index].remove());
+                    } else {
+                        table.remove();
+                    }
+                } break;
+            }
+            sync();
+        });
+    }
 })();

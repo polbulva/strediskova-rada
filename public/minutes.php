@@ -263,7 +263,7 @@ renderHeader('Zápisy z rady', $currentUser);
 <header class="site-header">
     <div class="container">
         <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
-        <h1>Zápisy z jednání</h1>
+        <h1>Zápisy z rady</h1>
         <p>Vytvořte, uložte a vytiskněte zápis z rady.</p>
     </div>
 </header>
@@ -333,7 +333,7 @@ renderHeader('Zápisy z rady', $currentUser);
                     <?php if ($values['calendar_event_key'] !== ''): ?>
                         <p class="muted">📅 Zápis je navázán na událost v kalendáři.</p>
                     <?php endif; ?>
-                    <p class="muted">Rozvrh schůzek družin se do zápisu doplní automaticky podle sezóny. <?php if (canAccess($currentUser, 'schedule_edit')): ?><a href="schedule.php">Upravit rozvrh</a><?php endif; ?></p>
+                    <p class="muted">Rozpis schůzek družin se do zápisu doplní automaticky podle sezóny. <?php if (canAccess($currentUser, 'schedule_edit')): ?><a href="schedule.php">Upravit rozpis</a><?php endif; ?></p>
                     <div class="form-grid">
                         <label>Číslo rady <span class="required">*</span>
                             <input type="number" min="1" name="meeting_number" required value="<?= h($values['meeting_number']) ?>">
@@ -363,27 +363,44 @@ renderHeader('Zápisy z rady', $currentUser);
                         </label>
                     </div>
 
-                    <details class="form-timetable" open>
-                        <summary>Rozpis schůzek družin (pro nahlédnutí)</summary>
-                        <?= renderSeasonTimetables(seasonFor($values['meeting_date'] ?: date('Y-m-d'))) ?>
-                    </details>
-
                     <h3>Osnova a poznámky</h3>
+                    <?php
+                    $tripHost = null;
+                    foreach (array_values($items) as $index => $item) {
+                        if (($item['item_type'] ?? '') === 'trips') {
+                            $tripHost = $index;
+                            break;
+                        }
+                    }
+                    $timetableHost = null;
+                    foreach (array_values($items) as $index => $item) {
+                        if (($item['item_type'] ?? '') === 'timetable') {
+                            $timetableHost = $index;
+                            break;
+                        }
+                    }
+                    $ttSeason = seasonFor($values['meeting_date'] ?: date('Y-m-d'));
+                    $canEditSchedule = $pdo && canAccess($currentUser, 'schedule_edit');
+                    $timetableHtml = renderSeasonTimetables($ttSeason, false, (bool) $canEditSchedule);
+                    $tripContext = ['trips' => $trips, 'units' => $tripUnits, 'groups' => $tripGroups];
+                    ?>
                     <div id="items" data-name="items">
                         <?php foreach (array_values($items) as $index => $item): ?>
-                            <?= renderItemRow((string) $index, $item) ?>
+                            <?= renderItemRow((string) $index, $item, $index === $tripHost ? $tripContext : null, $index === $timetableHost ? $timetableHtml : null) ?>
                         <?php endforeach; ?>
                     </div>
                     <button class="button secondary" type="button" data-add="items">+ Přidat bod</button>
 
-                    <h3>Výpravy</h3>
-                    <p class="muted">Oddíly a družiny se spravují v Administraci → Číselníky. V zápisu se výpravy zobrazí v tabulce pro každý oddíl.</p>
-                    <div id="trips" data-name="trips">
-                        <?php foreach (array_values($trips) as $index => $trip): ?>
-                            <?= renderTripRow((string) $index, $trip, $tripUnits, $tripGroups) ?>
-                        <?php endforeach; ?>
-                    </div>
-                    <button class="button secondary" type="button" data-add="trips">+ Přidat výpravu</button>
+                    <?php if ($timetableHost === null): ?>
+                        <details class="form-timetable" open>
+                            <summary>Rozpis schůzek družin<?= $canEditSchedule ? '' : ' (pro nahlédnutí)' ?></summary>
+                            <?= $timetableHtml ?>
+                        </details>
+                    <?php endif; ?>
+                    <?php if ($tripHost === null): ?>
+                        <h3>Výpravy</h3>
+                        <?= renderTripsEditor($trips, $tripUnits, $tripGroups) ?>
+                    <?php endif; ?>
                     <h3>Proběhlé akce – vyhodnocení</h3>
                     <p class="muted">Akce, které se konaly od minulé rady. Po uložení se v dalších zápisech už nezobrazí.</p>
                     <?php foreach (array_values($pastEvents) as $index => $pastEvent): ?>
@@ -440,6 +457,15 @@ renderHeader('Zápisy z rady', $currentUser);
                     <?php endif; ?>
                 </form>
 
+                <?php if ($canEditSchedule): ?>
+                    <?php
+                    try {
+                        echo renderScheduleDialog($ttSeason, loadLookups($pdo, 'clubroom'), loadLookups($pdo, 'category'), $tripGroups);
+                    } catch (Throwable $exception) {
+                    }
+                    ?>
+                    <script>window.SCHEDULE = {season: <?= json_encode($ttSeason) ?>, token: <?= json_encode(csrfToken()) ?>, ajax: true};</script>
+                <?php endif; ?>
                 <template id="items-template"><?= renderItemRow('__INDEX__', ['level' => 1]) ?></template>
                 <template id="trips-template"><?= renderTripRow('__INDEX__', [], $tripUnits, $tripGroups) ?></template>
                 <template id="events-template"><?= renderEventRow('__INDEX__', []) ?></template>

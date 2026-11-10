@@ -267,3 +267,19 @@ select { width: 100%; padding: 10px 12px; border: 1px solid #c8d4c9; border-radi
 .sign-pad canvas { width: 100%; max-width: 400px; aspect-ratio: 8 / 3; border: 1px dashed #8aa595; border-radius: 8px; background: #fff; touch-action: none; cursor: crosshair; }
 .sign-img { height: 70px; max-width: 260px; margin-top: 6px; }
 .trip-row .event-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+
+.rte { border: 1px solid #c8d4c9; border-radius: 8px; background: #fff; margin: 6px 0; }
+.rte-bar { display: flex; flex-wrap: wrap; gap: 4px; padding: 6px; border-bottom: 1px solid #dce5dc; background: #f4f8f4; border-radius: 8px 8px 0 0; }
+.rte-bar button { min-width: 34px; height: 32px; padding: 0 8px; border: 1px solid #c8d4c9; border-radius: 6px; background: #fff; cursor: pointer; font: inherit; }
+.rte-bar button:hover { background: #eef5ef; }
+.rte-area { min-height: 90px; padding: 10px 12px; outline: none; overflow-x: auto; }
+.rte-area:focus { box-shadow: inset 0 0 0 2px #b7d8c6; }
+.rte-area:empty::before { content: attr(data-placeholder); color: #7b8a80; }
+.rte-area ul, .rte-area ol, .rich ul, .rich ol { margin: 4px 0; padding-left: 24px; }
+.rte-area table, .rich table { border-collapse: collapse; margin: 8px 0; max-width: 100%; }
+.rte-area th, .rte-area td, .rich th, .rich td { border: 1px solid #9fb0a5; padding: 4px 8px; min-width: 40px; vertical-align: top; }
+.rte-area th, .rich th { background: #eef3ee; }
+.rte-area img, .rich img { max-width: 100%; height: auto; }
+.rich p { margin: 4px 0; }
+.item-trips { margin: 10px 0; padding: 10px; border: 1px dashed #b7d8c6; border-radius: 8px; }
+.agenda-type { width: auto; max-width: 150px; }

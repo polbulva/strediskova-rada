@@ -26,13 +26,14 @@ if (!isValidSeason($season)) {
 if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = (string) ($_POST['action'] ?? '');
     $isMove = $action === 'move';
+    $isAjax = !empty($_POST['ajax']);
 
     if (!$canEdit || !csrfValid()) {
-        if ($isMove) {
+        if ($isMove || $isAjax) {
             http_response_code(403);
             exit;
         }
-        $errors[] = $canEdit ? 'Formulář vypršel nebo není platný. Obnovte stránku a zkuste to znovu.' : 'K úpravě rozvrhu nemáte oprávnění.';
+        $errors[] = $canEdit ? 'Formulář vypršel nebo není platný. Obnovte stránku a zkuste to znovu.' : 'K úpravě rozpisu nemáte oprávnění.';
     } else {
         try {
             if ($isMove) {
@@ -44,6 +45,11 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($action === 'save') {
                 $error = saveGroupMeeting($pdo, $season, $_POST);
+                if ($isAjax) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['error' => $error]);
+                    exit;
+                }
                 if ($error) {
                     $errors[] = $error;
                 } else {
@@ -52,13 +58,18 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } elseif ($action === 'delete' && ctype_digit((string) ($_POST['id'] ?? ''))) {
                 deleteGroupMeeting($pdo, (int) $_POST['id']);
+                if ($isAjax) {
+                    header('Content-Type: application/json; charset=utf-8');
+                    echo json_encode(['error' => null]);
+                    exit;
+                }
                 flash('Schůzka byla smazána.', 'success');
                 redirect('schedule.php?season=' . rawurlencode($season));
             } elseif ($action === 'copy') {
                 $from = (string) ($_POST['from_season'] ?? '');
                 $existing = count(loadGroupMeetings($pdo, $season));
                 if (!isValidSeason($from) || $from === $season) {
-                    $errors[] = 'Vyberte jinou sezónu, ze které se má rozvrh převzít.';
+                    $errors[] = 'Vyberte jinou sezónu, ze které se má rozpis převzít.';
                 } elseif ($existing > 0) {
                     $errors[] = 'Sezóna ' . $season . ' už schůzky obsahuje. Převzít lze jen do prázdné sezóny.';
                 } else {
@@ -68,7 +79,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         } catch (Throwable $exception) {
-            if ($isMove) {
+            if ($isMove || $isAjax) {
                 http_response_code(500);
                 exit;
             }
@@ -85,17 +96,22 @@ if ($pdo) {
         $meetings = loadGroupMeetings($pdo, $season);
         $seasons = scheduleSeasons($pdo, seasonFor(date('Y-m-d')));
     } catch (Throwable $exception) {
-        $databaseError = 'Rozvrh nelze načíst. Zkontrolujte, že jsou spuštěny všechny skripty z database/migrations.';
+        $databaseError = 'Rozpis nelze načíst. Zkontrolujte, že jsou spuštěny všechny skripty z database/migrations.';
     }
 }
 
-renderHeader('Rozvrh schůzek', $currentUser);
+if ($pdo && !$databaseError && isset($_GET['partial'])) {
+    echo renderTimetables($clubrooms, $meetings, $canEdit);
+    exit;
+}
+
+renderHeader('Rozpis schůzek', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
         <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
-        <h1>Rozvrh schůzek družin</h1>
-        <p>Sezóna <?= h($season) ?> (září – červen). Rozvrh se zobrazuje i v každém zápisu z rady.</p>
+        <h1>Rozpis schůzek družin</h1>
+        <p>Sezóna <?= h($season) ?> (září – červen). Rozpis se zobrazuje i v každém zápisu z rady.</p>
     </div>
 </header>
 
@@ -122,7 +138,7 @@ renderHeader('Rozvrh schůzek', $currentUser);
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <input type="hidden" name="action" value="copy">
                     <input type="hidden" name="season" value="<?= h($season) ?>">
-                    <label>Převzít rozvrh ze sezóny
+                    <label>Převzít rozpis ze sezóny
                         <select name="from_season">
                             <?php foreach ($seasons as $option): ?>
                                 <?php if ($option !== $season): ?>

@@ -4,6 +4,7 @@ require_once __DIR__ . '/schedule.php';
 require_once __DIR__ . '/calendar.php';
 require_once __DIR__ . '/events.php';
 require_once __DIR__ . '/trips.php';
+require_once __DIR__ . '/richtext.php';
 
 const DEFAULT_AGENDA = [
     [1, 'Zprávy z VOJ'],
@@ -84,7 +85,7 @@ function linkify(string $escaped): string
 }
 
 // Každý řádek je odrážka; odsazení (2 mezery) vytvoří podbod.
-function renderNotes(?string $notes): string
+function renderPlainNotes(?string $notes): string
 {
     $html = '';
     $previous = -1;
@@ -114,9 +115,9 @@ function itemKey(int $level, string $title): string
     return $level . '|' . mb_strtolower(trim($title));
 }
 
-function emptyItem(int $level, string $title): array
+function emptyItem(int $level, string $title, string $type = ''): array
 {
-    return ['level' => $level, 'title' => $title, 'notes' => '', 'carry_over' => 0, 'carried' => 0];
+    return ['level' => $level, 'title' => $title, 'item_type' => $type, 'notes' => '', 'carry_over' => 0, 'carried' => 0];
 }
 
 /**
@@ -128,7 +129,7 @@ function buildAgenda(array $previousItems, ?array $template = null): array
     $items = [];
     $always = [];
     foreach ($template ?? DEFAULT_AGENDA as $row) {
-        $item = emptyItem((int) $row[0], $row[1]);
+        $item = emptyItem((int) $row[0], $row[1], itemTypeOrEmpty($row[3] ?? guessItemType($row[1])));
         if (!empty($row[2])) {
             $item['carry_over'] = 1;
             $always[itemKey($item['level'], $item['title'])] = true;
@@ -170,6 +171,7 @@ function buildAgenda(array $previousItems, ?array $template = null): array
         $carried = [
             'level' => $level,
             'title' => $previous['title'],
+            'item_type' => itemTypeOrEmpty($previous['item_type'] ?? ''),
             'notes' => (string) $previous['notes'],
             'carry_over' => $isAlways ? 1 : 0,
             'carried' => 1,
@@ -178,6 +180,7 @@ function buildAgenda(array $previousItems, ?array $template = null): array
         $key = implode('>', array_map(static fn (string $s): string => mb_strtolower(trim($s)), $stack));
         $existing = array_search($key, $pathOf($items), true);
         if ($existing !== false) {
+            $carried['item_type'] = $items[$existing]['item_type'];
             $items[$existing] = $carried;
             continue;
         }
@@ -191,7 +194,7 @@ function buildAgenda(array $previousItems, ?array $template = null): array
             ));
             $ancestor = array_search($ancestorKey, $pathOf($items), true);
             if ($ancestor === false) {
-                array_splice($items, $insertAt, 0, [emptyItem($depth, $stack[$depth - 1])]);
+                array_splice($items, $insertAt, 0, [emptyItem($depth, $stack[$depth - 1], guessItemType($stack[$depth - 1]))]);
                 $ancestor = $insertAt;
             }
             $insertAt = $subtreeEnd($items, $ancestor);
@@ -224,7 +227,7 @@ function numberedItems(array $items): array
     }
     return $result;
 }
-function renderItemRow(string $index, array $item): string
+function renderItemRow(string $index, array $item, ?array $tripContext = null, ?string $timetableHtml = null): string
 {
     $level = (int) ($item['level'] ?? 1);
     $carry = !empty($item['carry_over']) ? ' checked' : '';
@@ -236,6 +239,7 @@ function renderItemRow(string $index, array $item): string
         . '<div class="item-head">'
         . '<button type="button" class="collapse-toggle" data-action="toggle" title="Sbalit / rozbalit podbody">▾<span class="collapse-count"></span></button>'
         . '<input type="hidden" data-field="level" value="' . $level . '">'
+        . '<input type="hidden" data-field="type" value="' . h(itemTypeOrEmpty($item['item_type'] ?? '')) . '">'
         . '<input type="text" data-field="title" name="items[' . h($index) . '][title]" maxlength="255" placeholder="Název bodu" value="' . h($item['title'] ?? '') . '">'
         . '<div class="item-actions">'
         . '<button type="button" data-action="up" title="Posunout nahoru (i s podbody)">↑</button>'
@@ -244,7 +248,9 @@ function renderItemRow(string $index, array $item): string
         . '<button type="button" data-action="indent" title="Odsadit (podbod)">⇥</button>'
         . '<button type="button" data-action="remove" title="Odebrat">✕</button>'
         . '</div></div>'
-        . '<textarea data-field="notes" name="items[' . h($index) . '][notes]" rows="4" placeholder="Poznámky – každý řádek je odrážka, odsazení dvěma mezerami vytvoří podbod">' . h($item['notes'] ?? '') . '</textarea>'
+        . renderRichEditor($item['notes'] ?? '')
+        . ($tripContext ? '<div class="item-trips"><strong>Výpravy</strong>' . renderTripsEditor($tripContext['trips'], $tripContext['units'], $tripContext['groups']) . '</div>' : '')
+        . ($timetableHtml !== null ? '<details class="form-timetable" open><summary>Rozpis schůzek družin</summary>' . $timetableHtml . '</details>' : '')
         . '<div class="item-foot"><label class="check"><input type="checkbox" data-field="carry" name="items[' . h($index) . '][carry]" value="1"' . $carry . '> Řešit na další radě</label>' . $badge . '</div>'
         . '</div>';
 }
@@ -346,8 +352,8 @@ function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resoluti
         }
 
         $insertItem = $pdo->prepare(
-            'INSERT INTO meeting_items (meeting_id, position, level, title, notes, carry_over)
-             VALUES (:meeting_id, :position, :level, :title, :notes, :carry_over)'
+            'INSERT INTO meeting_items (meeting_id, position, level, title, item_type, notes, carry_over)
+             VALUES (:meeting_id, :position, :level, :title, :item_type, :notes, :carry_over)'
         );
         foreach ($items as $position => $item) {
             $insertItem->execute([
@@ -355,6 +361,7 @@ function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resoluti
                 'position' => $position,
                 'level' => $item['level'],
                 'title' => $item['title'],
+                'item_type' => itemTypeOrEmpty($item['item_type'] ?? ''),
                 'notes' => $item['notes'] ?: null,
                 'carry_over' => $item['carry_over'],
             ]);
@@ -401,7 +408,8 @@ function parseItems(mixed $input): array
         $items[] = [
             'level' => max(1, min(MAX_ITEM_LEVEL, (int) ($row['level'] ?? 1))),
             'title' => mb_substr($title, 0, 255),
-            'notes' => trim(str_replace("\r\n", "\n", (string) ($row['notes'] ?? ''))),
+            'item_type' => itemTypeOrEmpty($row['type'] ?? ''),
+            'notes' => sanitizeNotesHtml((string) ($row['notes'] ?? '')),
             'carry_over' => !empty($row['carry']) ? 1 : 0,
         ];
     }

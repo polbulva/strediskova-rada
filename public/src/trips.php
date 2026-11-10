@@ -125,3 +125,14 @@ function renderTripTables(array $trips): string
     }
     return $html;
 }
+
+function renderTripsEditor(array $trips, array $units, array $groups): string
+{
+    $rows = '';
+    foreach (array_values($trips) as $index => $trip) {
+        $rows .= renderTripRow((string) $index, $trip, $units, $groups);
+    }
+    return '<div class="trips-editor"><p class="muted">Oddíly a družiny se spravují v Administraci → Číselníky.</p>'
+        . '<div id="trips" data-name="trips">' . $rows . '</div>'
+        . '<button class="button secondary" type="button" data-add="trips">+ Přidat výpravu</button></div>';
+}

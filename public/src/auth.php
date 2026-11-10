@@ -18,14 +18,14 @@ function appModules(): array
             'policy' => 'all',
         ],
         'schedule' => [
-            'title' => 'Rozvrh schůzek',
+            'title' => 'Rozpis schůzek',
             'description' => 'Přehled schůzek družin v klubovnách během sezóny (jen ke čtení).',
             'icon' => '📅',
             'url' => 'schedule.php',
             'policy' => 'all',
         ],
         'schedule_edit' => [
-            'title' => 'Úprava rozvrhu schůzek',
+            'title' => 'Úprava rozpisu schůzek',
             'description' => 'Přidávání, úprava, přesun a převzetí schůzek z minulé sezóny.',
             'icon' => '✏️',
             'url' => 'schedule.php',
