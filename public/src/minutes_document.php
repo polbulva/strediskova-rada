@@ -44,7 +44,9 @@ $chapters = count(array_filter($numbered, static fn (array $item): bool => (int)
                         <?= renderSeasonTimetables($meeting['season'], $pdfMode) ?>
                     <?php endif; ?>
                     <?php $titleLower = mb_strtolower($item['title']); ?>
-                    <?php if (str_contains($titleLower, 'proběhlé akce')): ?>
+                    <?php if (str_contains($titleLower, 'výprav')): ?>
+                        <?= renderTripTables($meeting['trips'] ?? []) ?>
+                    <?php elseif (str_contains($titleLower, 'proběhlé akce')): ?>
                         <?= renderPastEventsTable($meeting['events_past']) ?>
                     <?php elseif (str_contains($titleLower, 'chystané akce')): ?>
                         <?= renderUpcomingEventsTable($meeting['events_upcoming']) ?>

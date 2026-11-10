@@ -266,3 +266,4 @@ select { width: 100%; padding: 10px 12px; border: 1px solid #c8d4c9; border-radi
 .sign-pad { display: grid; gap: 6px; max-width: 420px; }
 .sign-pad canvas { width: 100%; max-width: 400px; aspect-ratio: 8 / 3; border: 1px dashed #8aa595; border-radius: 8px; background: #fff; touch-action: none; cursor: crosshair; }
 .sign-img { height: 70px; max-width: 260px; margin-top: 6px; }
+.trip-row .event-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

@@ -3,6 +3,7 @@
 require_once __DIR__ . '/schedule.php';
 require_once __DIR__ . '/calendar.php';
 require_once __DIR__ . '/events.php';
+require_once __DIR__ . '/trips.php';
 
 const DEFAULT_AGENDA = [
     [1, 'Zprávy z VOJ'],
@@ -291,10 +292,16 @@ function loadMeeting(PDO $pdo, int $id): ?array
         $meeting['events_upcoming'] = $meeting['events_past'] = [];
     }
 
+    try {
+        $meeting['trips'] = loadMeetingTrips($pdo, $id);
+    } catch (Throwable $exception) {
+        $meeting['trips'] = [];
+    }
+
     return $meeting;
 }
 
-function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resolutions, array $upcomingEvents = [], array $pastEvents = [], array $loadedEventIds = []): int
+function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resolutions, array $upcomingEvents = [], array $pastEvents = [], array $loadedEventIds = [], array $trips = []): int
 {
     $params = [
         'meeting_number' => (int) $v['meeting_number'],
@@ -369,6 +376,7 @@ function saveMeeting(PDO $pdo, ?int $id, array $v, array $items, array $resoluti
         }
 
         saveMeetingEvents($pdo, $id, $upcomingEvents, $pastEvents, $loadedEventIds);
+        saveMeetingTrips($pdo, $id, $trips);
 
         $pdo->commit();
     } catch (Throwable $exception) {

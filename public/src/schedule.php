@@ -8,12 +8,14 @@ function lookupTypes(): array
     return [
         'category' => 'Kategorie',
         'clubroom' => 'Klubovny',
+        'unit' => 'Oddíly',
+        'group' => 'Družiny',
     ];
 }
 
 function loadLookups(PDO $pdo, string $type): array
 {
-    $statement = $pdo->prepare('SELECT id, label FROM lookups WHERE type = :type ORDER BY position, id');
+    $statement = $pdo->prepare('SELECT id, label, parent_id FROM lookups WHERE type = :type ORDER BY position, id');
     $statement->execute(['type' => $type]);
     return $statement->fetchAll();
 }
@@ -22,12 +24,13 @@ function loadLookups(PDO $pdo, string $type): array
  * @param array $existing  [id => ['label' => ..., 'delete' => ...]] v pořadí zobrazení
  * @param array $new       seznam nových názvů
  */
-function saveLookups(PDO $pdo, string $type, array $existing, array $new): void
+function saveLookups(PDO $pdo, string $type, array $existing, array $new, array $newParents = []): void
 {
     $pdo->beginTransaction();
     try {
         $position = 0;
         $update = $pdo->prepare('UPDATE lookups SET label = :label, position = :position WHERE id = :id AND type = :type');
+        $updateGroup = $pdo->prepare('UPDATE lookups SET label = :label, position = :position, parent_id = :parent WHERE id = :id AND type = :type');
         $delete = $pdo->prepare('DELETE FROM lookups WHERE id = :id AND type = :type');
         foreach ($existing as $id => $row) {
             if (!ctype_digit((string) $id) || !is_array($row)) {
@@ -36,15 +39,22 @@ function saveLookups(PDO $pdo, string $type, array $existing, array $new): void
             $label = mb_substr(trim((string) ($row['label'] ?? '')), 0, 100);
             if (!empty($row['delete']) || $label === '') {
                 $delete->execute(['id' => (int) $id, 'type' => $type]);
+                if ($type === 'unit') {
+                    $pdo->prepare("UPDATE lookups SET parent_id = NULL WHERE type = 'group' AND parent_id = :id")->execute(['id' => (int) $id]);
+                }
+                continue;
+            }
+            if ($type === 'group') {
+                $updateGroup->execute(['label' => $label, 'position' => ++$position, 'parent' => lookupIdOrNull($pdo, 'unit', $row['parent'] ?? ''), 'id' => (int) $id, 'type' => $type]);
                 continue;
             }
             $update->execute(['label' => $label, 'position' => ++$position, 'id' => (int) $id, 'type' => $type]);
         }
-        $insert = $pdo->prepare('INSERT INTO lookups (type, label, position) VALUES (:type, :label, :position)');
-        foreach ($new as $label) {
+        $insert = $pdo->prepare('INSERT INTO lookups (type, label, position, parent_id) VALUES (:type, :label, :position, :parent)');
+        foreach (array_values($new) as $newIndex => $label) {
             $label = mb_substr(trim((string) $label), 0, 100);
             if ($label !== '') {
-                $insert->execute(['type' => $type, 'label' => $label, 'position' => ++$position]);
+                $insert->execute(['type' => $type, 'label' => $label, 'position' => ++$position, 'parent' => $type === 'group' ? lookupIdOrNull($pdo, 'unit', $newParents[$newIndex] ?? '') : null]);
             }
         }
         $pdo->commit();
@@ -241,7 +251,7 @@ function renderTimetables(array $clubrooms, array $meetings, bool $editable): st
     return $html !== '' ? $html : '<p class="muted">Zatím nejsou definovány žádné klubovny. Přidejte je v Administraci → Číselníky.</p>';
 }
 
-function renderScheduleDialog(string $season, array $clubrooms, array $categories): string
+function renderScheduleDialog(string $season, array $clubrooms, array $categories, array $groups = []): string
 {
     $options = static function (array $rows): string {
         $html = '<option value="">–</option>';
@@ -260,7 +270,8 @@ function renderScheduleDialog(string $season, array $clubrooms, array $categorie
         . '<input type="hidden" name="season" value="' . h($season) . '">'
         . '<input type="hidden" name="id" value="">'
         . '<h3 id="sch-title">Schůzka družiny</h3>'
-        . '<label>Družina <input type="text" name="group_name" maxlength="255" required></label>'
+        . '<label>Družina <input type="text" name="group_name" maxlength="255" list="group-names" required></label>'
+        . '<datalist id="group-names">' . implode('', array_map(static fn (array $g): string => '<option value="' . h($g['label']) . '">', $groups)) . '</datalist>'
         . '<div class="form-grid">'
         . '<label>Klubovna <select name="clubroom_id">' . $options($clubrooms) . '</select></label>'
         . '<label>Den <select name="weekday">' . $days . '</select></label>'

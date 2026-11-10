@@ -85,7 +85,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (($_POST['action'] ?? '') === 'lookups') {
         try {
             foreach (lookupTypes() as $type => $label) {
-                saveLookups($pdo, $type, (array) ($_POST['lookups'][$type] ?? []), (array) ($_POST['new'][$type] ?? []));
+                saveLookups($pdo, $type, (array) ($_POST['lookups'][$type] ?? []), (array) ($_POST['new'][$type] ?? []), (array) ($_POST['newparent'][$type] ?? []));
             }
             saveAgendaTemplate($pdo, (array) ($_POST['agenda'] ?? []), (array) ($_POST['agenda_new'] ?? []));
             flash('Číselníky byly uloženy.', 'success');
@@ -256,6 +256,7 @@ renderHeader('Administrace', $currentUser);
                         <?php foreach ($lookupData[$type] ?? [] as $row): ?>
                             <div class="lookup-row">
                                 <input type="text" maxlength="100" name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][label]" value="<?= h($row['label']) ?>">
+                                <?php if ($type === 'group'): ?><select name="lookups[group][<?= (int) $row['id'] ?>][parent]" title="Oddíl"><option value="">– oddíl –</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"<?= (int) $row['parent_id'] === (int) $unit['id'] ? ' selected' : '' ?>><?= h($unit['label']) ?></option><?php endforeach; ?></select><?php endif; ?>
                                 <button type="button" data-lookup-move="-1" title="Nahoru">▲</button>
                                 <button type="button" data-lookup-move="1" title="Dolů">▼</button>
                                 <label class="check"><input type="checkbox" name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][delete]" value="1"> Smazat</label>
@@ -265,6 +266,7 @@ renderHeader('Administrace', $currentUser);
                     <label>Přidat novou položku
                         <input type="text" maxlength="100" name="new[<?= h($type) ?>][]" placeholder="Nový název">
                     </label>
+                    <?php if ($type === 'group'): ?><label>Oddíl nové družiny <select name="newparent[group][]"><option value="">–</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"><?= h($unit['label']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
                 </section>
             <?php endforeach; ?>
             <?php

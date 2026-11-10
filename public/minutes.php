@@ -16,6 +16,9 @@ $resolutions = [];
 $upcomingEvents = [];
 $pastEvents = [];
 $loadedEventIds = [];
+$trips = [];
+$tripUnits = [];
+$tripGroups = [];
 $errors = [];
 $notice = '';
 $databaseError = '';
@@ -58,6 +61,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $resolutions = parseResolutions($_POST['resolutions'] ?? []);
         $upcomingEvents = parseEventRows($_POST['events'] ?? []);
         $postedPast = parsePastRows($_POST['past'] ?? []);
+        $trips = parseTripRows($_POST['trips'] ?? []);
         $loadedEventIds = parseLoadedIds($_POST['events_loaded'] ?? '');
         $editId = ctype_digit((string) ($_POST['id'] ?? '')) ? (int) $_POST['id'] : null;
 
@@ -86,7 +90,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$errors) {
             try {
-                $id = saveMeeting($pdo, $editId, $values, $items, $resolutions, $upcomingEvents, $postedPast, $loadedEventIds);
+                $id = saveMeeting($pdo, $editId, $values, $items, $resolutions, $upcomingEvents, $postedPast, $loadedEventIds, $trips);
                 header('Location: minutes.php?id=' . $id . '&saved=1');
                 exit;
             } catch (Throwable $exception) {
@@ -177,6 +181,7 @@ if ($pdo && !$databaseError) {
                 }
                 $upcomingEvents = $existing['events_upcoming'];
                 $pastEvents = $existing['events_past'];
+        $trips = $existing['trips'];
                 $loadedEventIds = array_map(static fn (array $e): int => (int) $e['id'], $upcomingEvents);
                 foreach ($existing['resolutions'] as $row) {
                     $resolutions[] = [
@@ -245,6 +250,14 @@ if (isset($_GET['saved'])) {
 }
 
 $showForm = !$meeting && $pdo && !$databaseError && $wantForm;
+if ($showForm) {
+    try {
+        $tripUnits = loadLookups($pdo, 'unit');
+        $tripGroups = loadLookups($pdo, 'group');
+    } catch (Throwable $exception) {
+        $tripUnits = $tripGroups = [];
+    }
+}
 renderHeader('Zápisy z rady', $currentUser);
 ?>
 <header class="site-header">
@@ -363,6 +376,14 @@ renderHeader('Zápisy z rady', $currentUser);
                     </div>
                     <button class="button secondary" type="button" data-add="items">+ Přidat bod</button>
 
+                    <h3>Výpravy</h3>
+                    <p class="muted">Oddíly a družiny se spravují v Administraci → Číselníky. V zápisu se výpravy zobrazí v tabulce pro každý oddíl.</p>
+                    <div id="trips" data-name="trips">
+                        <?php foreach (array_values($trips) as $index => $trip): ?>
+                            <?= renderTripRow((string) $index, $trip, $tripUnits, $tripGroups) ?>
+                        <?php endforeach; ?>
+                    </div>
+                    <button class="button secondary" type="button" data-add="trips">+ Přidat výpravu</button>
                     <h3>Proběhlé akce – vyhodnocení</h3>
                     <p class="muted">Akce, které se konaly od minulé rady. Po uložení se v dalších zápisech už nezobrazí.</p>
                     <?php foreach (array_values($pastEvents) as $index => $pastEvent): ?>
@@ -420,6 +441,7 @@ renderHeader('Zápisy z rady', $currentUser);
                 </form>
 
                 <template id="items-template"><?= renderItemRow('__INDEX__', ['level' => 1]) ?></template>
+                <template id="trips-template"><?= renderTripRow('__INDEX__', [], $tripUnits, $tripGroups) ?></template>
                 <template id="events-template"><?= renderEventRow('__INDEX__', []) ?></template>
                 <template id="resolutions-template"><?= renderResolutionRow('__INDEX__', []) ?></template>
             </section>

@@ -9,6 +9,7 @@ $canEdit = canAccess($currentUser, 'schedule_edit');
 $errors = [];
 $databaseError = '';
 $pdo = null;
+$groups = [];
 $clubrooms = $categories = $meetings = $seasons = [];
 
 try {
@@ -80,6 +81,7 @@ if ($pdo) {
     try {
         $clubrooms = loadLookups($pdo, 'clubroom');
         $categories = loadLookups($pdo, 'category');
+        $groups = loadLookups($pdo, 'group');
         $meetings = loadGroupMeetings($pdo, $season);
         $seasons = scheduleSeasons($pdo, seasonFor(date('Y-m-d')));
     } catch (Throwable $exception) {
@@ -142,7 +144,7 @@ renderHeader('Rozvrh schůzek', $currentUser);
         </div>
 
         <?php if ($canEdit): ?>
-            <?= renderScheduleDialog($season, $clubrooms, $categories) ?>
+            <?= renderScheduleDialog($season, $clubrooms, $categories, $groups ?? []) ?>
         <?php endif; ?>
     <?php endif; ?>
 </main>
