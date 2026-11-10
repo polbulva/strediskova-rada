@@ -62,7 +62,23 @@
     }
     var form = document.getElementById('sch-form');
 
+    function addHour(time) {
+        var parts = time.split(':');
+        var hours = parseInt(parts[0], 10) + 1;
+        return hours > 23 ? '' : (hours < 10 ? '0' : '') + hours + ':' + parts[1];
+    }
+
+    var autoEnd = false;
+    form.elements.time_from.addEventListener('change', function () {
+        if (form.elements.time_from.value && (autoEnd || !form.elements.time_to.value)) {
+            form.elements.time_to.value = addHour(form.elements.time_from.value);
+            autoEnd = true;
+        }
+    });
+    form.elements.time_to.addEventListener('input', function () { autoEnd = false; });
+
     function open(data, title) {
+        autoEnd = !data.id && !!data.time_to;
         form.reset();
         ['id', 'group_name', 'clubroom_id', 'weekday', 'time_from', 'time_to', 'category_id', 'age_text', 'leaders'].forEach(function (name) {
             var value = data[name];
@@ -82,7 +98,18 @@
         var add = event.target.closest('[data-sch-add]');
         if (add) {
             var day = add.closest('[data-sch-day]');
-            open({weekday: day.dataset.schDay, clubroom_id: day.dataset.schRoom}, 'Nová schůzka');
+            var data = {weekday: day.dataset.schDay, clubroom_id: day.dataset.schRoom};
+            var lastEnd = '';
+            day.querySelectorAll('[data-sch-card]').forEach(function (card) {
+                var m = JSON.parse(card.dataset.schJson);
+                var end = m.time_to || m.time_from;
+                if (end && end > lastEnd) { lastEnd = end; }
+            });
+            if (lastEnd) {
+                data.time_from = lastEnd;
+                data.time_to = addHour(lastEnd);
+            }
+            open(data, 'Nová schůzka');
             return;
         }
         var card = event.target.closest('[data-sch-card]');

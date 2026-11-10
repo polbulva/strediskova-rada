@@ -229,3 +229,7 @@ select { width: 100%; padding: 10px 12px; border: 1px solid #c8d4c9; border-radi
 .agenda-row button { border: 1px solid #b9c5bc; background: #fff; border-radius: 6px; cursor: pointer; padding: 4px 8px; }
 .drag-handle { cursor: grab; font-size: 1.2rem; color: #6b7a70; user-select: none; }
 .agenda-row .check { white-space: nowrap; }
+.form-timetable { margin: 12px 0; }
+.form-timetable summary { cursor: pointer; font-weight: 700; margin-bottom: 8px; }
+
+.form-timetable .tt-grid { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }

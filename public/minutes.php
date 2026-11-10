@@ -361,7 +361,7 @@ renderHeader('Zápisy z rady', $currentUser);
         </article>
     <?php endif; ?>
 
-    <section class="layout<?= $showForm ? '' : ' single' ?>">
+    <section class="layout single">
         <?php if ($showForm): ?>
             <section class="card form-card">
                 <h2><?= $editId ? 'Úprava zápisu' : 'Nový zápis' ?></h2>
@@ -419,6 +419,11 @@ renderHeader('Zápisy z rady', $currentUser);
                             <textarea name="absentees" rows="2"><?= h($values['absentees']) ?></textarea>
                         </label>
                     </div>
+
+                    <details class="form-timetable" open>
+                        <summary>Rozpis schůzek družin (pro nahlédnutí)</summary>
+                        <?= renderSeasonTimetables(seasonFor($values['meeting_date'] ?: date('Y-m-d'))) ?>
+                    </details>
 
                     <h3>Osnova a poznámky</h3>
                     <div id="items" data-name="items">
