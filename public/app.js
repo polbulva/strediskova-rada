@@ -395,7 +395,7 @@
         if (editor.dataset.ready) return;
         editor.dataset.ready = '1';
         const area = editor.querySelector('.rte-area');
-        const hidden = editor.querySelector('input[data-field="notes"]');
+        const hidden = editor.querySelector('input[type="hidden"]');
         const file = editor.querySelector('[data-rte-file]');
 
         const sync = () => {

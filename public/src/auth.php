@@ -12,10 +12,18 @@ function appModules(): array
     return [
         'minutes' => [
             'title' => 'Zápisy z rady',
-            'description' => 'Vytváření, úprava a tisk zápisů ze střediskové rady.',
+            'description' => 'Zobrazení zápisů ze střediskové rady a jejich stažení do PDF.',
             'icon' => '📝',
             'url' => 'minutes.php',
             'policy' => 'all',
+        ],
+        'minutes_edit' => [
+            'title' => 'Úprava zápisů z rady',
+            'description' => 'Vytváření, úprava a mazání zápisů ze střediskové rady.',
+            'icon' => '✏️',
+            'url' => 'minutes.php',
+            'policy' => 'roles',
+            'tile' => false,
         ],
         'schedule' => [
             'title' => 'Rozpis schůzek',

@@ -283,3 +283,7 @@ select { width: 100%; padding: 10px 12px; border: 1px solid #c8d4c9; border-radi
 .rich p { margin: 4px 0; }
 .item-trips { margin: 10px 0; padding: 10px; border: 1px dashed #b7d8c6; border-radius: 8px; }
 .agenda-type { width: auto; max-width: 150px; }
+
+.event-summary > span { display: block; font-size: 0.9rem; margin: 0.4rem 0 0.2rem; }
+.doc-event { margin: 0 0 0.8rem; }
+.doc-event-head { margin: 0 0 0.2rem; }

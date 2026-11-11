@@ -227,7 +227,7 @@ function numberedItems(array $items): array
     }
     return $result;
 }
-function renderItemRow(string $index, array $item, ?array $tripContext = null, ?string $timetableHtml = null): string
+function renderItemRow(string $index, array $item, ?array $tripContext = null, ?string $timetableHtml = null, string $extraHtml = ''): string
 {
     $level = (int) ($item['level'] ?? 1);
     $carry = !empty($item['carry_over']) ? ' checked' : '';
@@ -250,6 +250,7 @@ function renderItemRow(string $index, array $item, ?array $tripContext = null, ?
         . '</div></div>'
         . renderRichEditor($item['notes'] ?? '')
         . ($tripContext ? '<div class="item-trips"><strong>Výpravy</strong>' . renderTripsEditor($tripContext['trips'], $tripContext['units'], $tripContext['groups']) . '</div>' : '')
+        . $extraHtml
         . ($timetableHtml !== null ? '<details class="form-timetable" open><summary>Rozpis schůzek družin</summary>' . $timetableHtml . '</details>' : '')
         . '<div class="item-foot"><label class="check"><input type="checkbox" data-field="carry" name="items[' . h($index) . '][carry]" value="1"' . $carry . '> Řešit na další radě</label>' . $badge . '</div>'
         . '</div>';

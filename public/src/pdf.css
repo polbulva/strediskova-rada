@@ -39,3 +39,6 @@ a { color: #184d38; text-decoration: none; }
 .rich th, .rich td { border: 1px solid #9fb0a5; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
 .rich th { background: #eef3ee; }
 .rich img { max-width: 100%; }
+
+.doc-event { margin: 0 0 8px; }
+.doc-event-head { margin: 0 0 2px; }

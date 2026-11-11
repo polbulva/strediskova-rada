@@ -94,3 +94,4 @@ database/migrations/   očíslované SQL skripty pro MySQL (spouštějí se ruč
    návratovou adresu na `login.php` (např. `https://vase-domena.cz/login.php`).
 
 Pro produkční nasazení používejte HTTPS.
+- **Úprava zápisů:** zápisy zobrazí a stáhnou do PDF všichni s přístupem k Zápisům z rady; vytvářet, upravovat a mazat smí jen role s oprávněním Úprava zápisů z rady (Administrace, Oprávnění; ve výchozím stavu jen správce). Chystané akce mají formulář název akce, termín, garant, shrnutí.

@@ -1,11 +1,22 @@
 <?php
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '1.1.0',
+            'date' => '2026-11-11',
+            'changes' => [
+                'Chystané akce se přidávají tlačítkem + jako formulář: název akce, termín, garant a shrnutí. Přenos z minulých rad funguje stejně.',
+                'Shrnutí akcí (chystaných i proběhlých) se píše v editoru s tabulkami a obrázky a v zápisu se zobrazuje bez tabulky, jako blok pod názvem akce. Vyžaduje spustit skript 010_akce_editor.sql.',
+                'Proběhlé i chystané akce se zadávají a upravují přímo v bodech osnovy typu „Proběhlé akce“ a „Chystané akce“; akci lze přidat i mezi proběhlé.',
+                'V náhledu a PDF zápisu se už nezobrazuje značka „Řešit na další radě“.',
+                'Nové oprávnění „Úprava zápisů z rady“: ostatní uživatelé zápis jen zobrazí a stáhnou do PDF, upravovat nemohou. Oprávnění se nastavuje v Administraci.',
+            ],
+        ],
         [
             'version' => '1.0.0',
             'date' => '2026-11-11',

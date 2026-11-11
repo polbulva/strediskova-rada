@@ -154,7 +154,7 @@ function renderNotes(?string $notes): string
     return $inner !== '' && isRichNotes($notes) ? '<div class="rich">' . $inner . '</div>' : $inner;
 }
 
-function renderRichEditor(?string $notes): string
+function renderRichEditor(?string $notes, string $field = 'notes', string $name = ''): string
 {
     $buttons = [
         ['bold', 'B', 'Tučně'], ['italic', 'I', 'Kurzíva'], ['underline', 'U', 'Podtržení'],
@@ -171,6 +171,6 @@ function renderRichEditor(?string $notes): string
 
     return '<div class="rte" data-rte><div class="rte-bar">' . $bar . '</div>'
         . '<div class="rte-area" contenteditable="true" data-placeholder="Poznámky – lze použít odrážky, tabulky i obrázky">' . notesInnerHtml($notes) . '</div>'
-        . '<input type="hidden" data-field="notes" value="' . h((string) $notes) . '">'
+        . '<input type="hidden" data-field="' . h($field) . '"' . ($name !== '' ? ' name="' . h($name) . '"' : '') . ' value="' . h((string) $notes) . '">'
         . '<input type="file" accept="image/*" hidden data-rte-file></div>';
 }

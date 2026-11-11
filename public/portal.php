@@ -87,7 +87,7 @@ renderHeader('Rozcestník', $user);
                     <?php foreach ($carried as $row): ?><li><?= h($row['title']) ?></li><?php endforeach; ?>
                 </ul>
             <?php endif; ?>
-            <?php if (canAccess($user, 'minutes')): ?>
+            <?php if (canAccess($user, 'minutes') && ($nextMinutesId || canAccess($user, 'minutes_edit'))): ?>
                 <a class="button" href="minutes.php?<?= $nextMinutesId ? 'id=' . (int) $nextMinutesId : 'event=' . rawurlencode($nextEvent['key']) ?>">
                     <?= $nextMinutesId ? 'Otevřít zápis' : 'Vytvořit zápis' ?>
                 </a>
