@@ -42,10 +42,49 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
                 $errors[] = $error;
             } elseif ($action === 'sync_calendar') {
-                $result = syncPlanFromCalendar($pdo, $season);
-                flash('Synchronizace hotová: přidáno ' . $result['added'] . ', aktualizováno ' . $result['updated'] . ' akcí.', 'success');
+                $messages = [];
+                if (planGoogleConfigured()) {
+                    [$rangeFrom, $rangeTo] = seasonRange($season);
+                    $removedLocal = dedupePlanEvents($pdo, loadPlanEvents($pdo, $season));
+                    $sent = pushPlanToGoogle($pdo, loadPlanEvents($pdo, $season), $rangeFrom, $rangeTo);
+                    $messages[] = 'do kalendáře „' . $sent['name'] . '“ odesláno ' . $sent['created'] . ' nových a ' . $sent['updated'] . ' aktualizovaných akcí'
+                        . ($sent['removed'] + $removedLocal ? ', odstraněno duplicit: ' . ($sent['removed'] + $removedLocal) : '');
+                }
+                if (planCalendarUrl() !== '') {
+                    $result = syncPlanFromCalendar($pdo, $season);
+                    $messages[] = 'z Google přidáno ' . $result['added'] . ' nových akcí';
+                }
+                if (!$messages) {
+                    throw new RuntimeException('Kalendář není v administraci nastaven.');
+                }
+                flash('Synchronizace hotová: ' . implode(', ', $messages) . '.', 'success');
+                redirect($back);
+            } elseif ($action === 'delete_events') {
+                $ids = array_values(array_filter(array_map('intval', (array) ($_POST['ids'] ?? [])), static fn (int $id): bool => $id > 0));
+                if (!$ids) {
+                    throw new RuntimeException('Nejdřív zaškrtněte akce ke smazání.');
+                }
+                $keys = $pdo->prepare('SELECT ical_key FROM events WHERE id = :id');
+                $delete = $pdo->prepare('DELETE FROM events WHERE id = :id');
+                foreach ($ids as $id) {
+                    $keys->execute(['id' => $id]);
+                    try {
+                        deleteEventFromGoogle($keys->fetchColumn() ?: null);
+                    } catch (Throwable $exception) {
+                        // akce se z plánu smaže i při výpadku Googlu
+                    }
+                    $delete->execute(['id' => $id]);
+                }
+                flash('Smazáno akcí: ' . count($ids) . '.', 'success');
                 redirect($back);
             } elseif ($action === 'delete_event' && ctype_digit((string) ($_POST['id'] ?? ''))) {
+                $gone = $pdo->prepare('SELECT ical_key FROM events WHERE id = :id');
+                $gone->execute(['id' => (int) $_POST['id']]);
+                try {
+                    deleteEventFromGoogle($gone->fetchColumn() ?: null);
+                } catch (Throwable $exception) {
+                    // akce se z plánu smaže i při výpadku Googlu
+                }
                 $pdo->prepare('DELETE FROM events WHERE id = :id')->execute(['id' => (int) $_POST['id']]);
                 flash('Akce byla smazána.', 'success');
                 redirect($back);
@@ -66,7 +105,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 redirect($back);
             }
         } catch (RuntimeException $exception) {
-            $errors[] = 'Synchronizace se nezdařila: ' . $exception->getMessage();
+            $errors[] = $exception->getMessage();
         } catch (Throwable $exception) {
             $errors[] = 'Změnu se nepodařilo uložit. Zkontrolujte, že jsou spuštěny všechny skripty z database/migrations.';
         }
@@ -126,14 +165,17 @@ renderHeader('Plán akcí', $currentUser);
                 <a class="button secondary" id="plan-pdf-full" href="plan_pdf.php?season=<?= h(rawurlencode($season)) ?>">Stáhnout PDF</a>
                 <a class="button secondary" href="plan_pdf.php?season=<?= h(rawurlencode($season)) ?>&amp;simple=1">PDF: jen termíny a názvy</a>
             </form>
-            <?php if ($canEdit && planCalendarUrl() !== ''): ?>
+            <?php if ($canEdit && (planCalendarUrl() !== '' || planGoogleConfigured())): ?>
                 <form method="post" class="toolbar-inline">
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <input type="hidden" name="action" value="sync_calendar">
                     <input type="hidden" name="season" value="<?= h($season) ?>">
                     <button class="button secondary" type="submit">🔄 Synchronizovat s kalendářem</button>
-                    <span class="muted">Načte akce roku <?= h($season) ?> z Google Kalendáře.</span>
+                    <span class="muted">Odešle akce roku <?= h($season) ?> do Google Kalendáře<?= planCalendarUrl() !== "" ? " a načte z něj nové akce" : "" ?>.</span>
                 </form>
+            <?php endif; ?>
+            <?php if ($canEdit && !planCalendarUrl() && !planGoogleConfigured()): ?>
+                <p class="muted">Synchronizaci s Google Kalendářem nastavíte v Administraci → Připojení.</p>
             <?php endif; ?>
             <form method="get" action="plan_pdf.php" class="toolbar-inline">
                 <label>Export za kalendářní rok
@@ -175,6 +217,16 @@ renderHeader('Plán akcí', $currentUser);
         <?php endif; ?>
 
         <?php if (!$timeline): ?><p class="muted">V tomto roce zatím nejsou žádné akce.</p><?php endif; ?>
+        <?php if ($canEdit && $events): ?>
+            <form method="post" id="bulk-delete" class="card toolbar-inline" onsubmit="return confirm('Opravdu smazat všechny vybrané akce?');">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="action" value="delete_events">
+                <input type="hidden" name="season" value="<?= h($season) ?>">
+                <label class="check"><input type="checkbox" id="plan-select-all"> Vybrat všechny akce</label>
+                <button class="button danger small" type="submit">Smazat vybrané</button>
+                <span class="muted">Zaškrtněte akce v seznamu níže.</span>
+            </form>
+        <?php endif; ?>
         <?php foreach ($timeline as $month => $entries): ?>
             <section class="card plan-month">
                 <h2><?= h(MONTH_NAMES[(int) substr($month, 5, 2)]) ?> <?= h(substr($month, 0, 4)) ?></h2>
@@ -189,6 +241,7 @@ renderHeader('Plán akcí', $currentUser);
                                 </div>
                                 <?php if ($canEdit): ?>
                                     <span class="plan-actions">
+                                        <input type="checkbox" name="ids[]" value="<?= (int) $event['id'] ?>" form="bulk-delete" class="plan-select" title="Vybrat ke smazání" style="width: auto">
                                         <a class="button secondary small" href="plan.php?season=<?= h(rawurlencode($season)) ?>&amp;edit=<?= (int) $event['id'] ?>#event-form">Upravit</a>
                                         <form method="post" onsubmit="return confirm('Opravdu smazat tuto akci?');">
                                             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
@@ -255,6 +308,12 @@ renderHeader('Plán akcí', $currentUser);
         try { localStorage.setItem('planNotes', toggle.checked ? '1' : '0'); } catch (e) {}
     }
     try { toggle.checked = localStorage.getItem('planNotes') !== '0'; } catch (e) {}
+    var all = document.getElementById('plan-select-all');
+    if (all) {
+        all.addEventListener('change', function () {
+            document.querySelectorAll('.plan-select').forEach(function (box) { box.checked = all.checked; });
+        });
+    }
     toggle.addEventListener('change', apply);
     apply();
 })();

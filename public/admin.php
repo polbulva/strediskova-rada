@@ -93,6 +93,15 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new RuntimeException('Adresa nevrací kalendář ve formátu iCal.');
                 }
             }
+            $calendarId = trim((string) ($_POST['plan_calendar_id'] ?? ''));
+            $keyJson = trim((string) ($_POST['plan_sa_json'] ?? ''));
+            if ($keyJson !== '') {
+                googleAccessToken($keyJson);
+            }
+            if ($keyJson !== '' && $calendarId === '') {
+                throw new RuntimeException('Vyplňte také ID kalendáře.');
+            }
+            savePlanGoogleSettings($pdo, $calendarId, $keyJson !== '' ? $keyJson : (isset($_POST['plan_sa_remove']) ? '' : null));
             savePlanCalendarUrl($pdo, $url);
             flash($url === '' ? 'Kalendář plánu akcí byl odpojen.' : 'Kalendář plánu akcí byl uložen.', 'success');
             redirect('admin.php?tab=connections');
@@ -281,6 +290,17 @@ renderHeader('Administrace', $currentUser);
                 <label>Adresa iCal
                     <input type="url" name="plan_ics_url" value="<?= h(planCalendarUrl()) ?>" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
                 </label>
+                <h3>Odesílání akcí do kalendáře (volitelné)</h3>
+                <p class="muted">Aby se akce vytvořené v aplikaci objevily v Google Kalendáři, je potřeba servisní účet: v Google Cloud Console vytvořte projekt, zapněte Google Calendar API, vytvořte servisní účet a jeho klíč ve formátu JSON. Kalendář pak sdílejte na e-mail servisního účtu s právem „Provádět změny událostí“.</p>
+                <label>ID kalendáře
+                    <input type="text" name="plan_calendar_id" value="<?= h(planGoogleSettings()['calendar_id']) ?>" placeholder="např. abc123@group.calendar.google.com">
+                </label>
+                <label>Klíč servisního účtu (JSON) <?= planGoogleSettings()['key_json'] !== '' ? '– uložen, vložením nového se přepíše' : '' ?>
+                    <textarea name="plan_sa_json" rows="4" autocomplete="off" placeholder="{ &quot;type&quot;: &quot;service_account&quot;, ... }"></textarea>
+                </label>
+                <?php if (planGoogleSettings()['key_json'] !== ''): ?>
+                    <label class="check"><input type="checkbox" name="plan_sa_remove" value="1"> Odstranit uložený klíč</label>
+                <?php endif; ?>
                 <button class="button" type="submit">Uložit a ověřit kalendář</button>
             </form>
         </section>
