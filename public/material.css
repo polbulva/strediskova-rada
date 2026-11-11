@@ -221,3 +221,6 @@ main.container > .tabs { margin-bottom: -8px; }
     .who small { display: none; }
     .topbar-inner { gap: 8px; }
 }
+.role-switch { margin: 0; }
+.role-switch select { max-width: 240px; padding: 2px 24px 2px 6px; font-size: 12px; border: 1px solid var(--md-outline-variant, #c4c8bb); border-radius: 8px; background-color: #fff; color: var(--md-on-surface-variant); }
+@media (max-width: 600px) { .role-switch select { max-width: 130px; } }

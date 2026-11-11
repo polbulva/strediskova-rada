@@ -41,7 +41,20 @@ function renderHeader(string $title, ?array $user = null, string $bodyClass = ''
         <div class="topbar-user">
             <span class="who">
                 <strong><?= h($user['name']) ?></strong>
-                <small><?= h($user['role_name'] ?: 'bez role') ?><?= $user['type'] === 'demo' ? ' · testovací vstup' : '' ?></small>
+                <?php $userRoles = (array) ($user['roles'] ?? []); ?>
+                <?php if (count($userRoles) > 1): ?>
+                    <form class="role-switch" method="post" action="switch_role.php">
+                        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                        <input type="hidden" name="return" value="<?= h(basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'portal.php'))) ?>">
+                        <select name="role" aria-label="Role" title="Zobrazit aplikaci pod rol?" onchange="this.form.submit()">
+                            <?php foreach ($userRoles as $roleIndex => $roleOption): ?>
+                                <option value="<?= (int) $roleIndex ?>"<?= ($roleOption['role_key'] === $user['role_key'] && ($roleOption['unit_id'] ?? null) === ($user['unit_id'] ?? null)) ? ' selected' : '' ?>><?= h(($roleOption['unit_name'] !== '' ? $roleOption['unit_name'] . ': ' : '') . ($roleOption['role_name'] ?: 'bez role')) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </form>
+                <?php else: ?>
+                    <small><?= h($user['role_name'] ?: 'bez role') ?><?= $user['type'] === 'demo' ? ' · testovací vstup' : '' ?></small>
+                <?php endif; ?>
             </span>
             <?php if (canAccess($user, 'admin')): ?>
                 <a class="icon-button<?= basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'admin.php' ? ' active' : '' ?>" href="admin.php" title="Administrace" aria-label="Administrace"><?= icon('settings') ?></a>
