@@ -128,3 +128,96 @@ input[type="checkbox"], input[type="radio"] { accent-color: var(--md-primary); w
 .topbar .button.secondary { border-color: var(--md-outline); background: transparent; color: var(--md-primary); }
 .topbar .button.secondary:hover { background: rgba(74, 103, 65, .08); }
 .topbar .who, .topbar .who small, .topbar .brand { color: var(--md-on-surface); }
+
+/* Písmo: text The Mix, nadpisy Skaut Bold (soubory v public/fonts, viz fonts/README.txt) */
+@font-face { font-family: "TheMix"; font-weight: 400; font-style: normal; src: url("fonts/font-regular.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "TheMix"; font-weight: 700; font-style: normal; src: url("fonts/font-bold.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "TheMix"; font-weight: 400; font-style: italic; src: url("fonts/font-italic.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "TheMix"; font-weight: 700; font-style: italic; src: url("fonts/font-bolditalic.ttf") format("truetype"); font-display: swap; }
+@font-face { font-family: "SkautBold"; font-weight: 700; font-style: normal; src: local("Skaut Bold"), local("SkautBold"), url("fonts/skaut-bold.ttf") format("truetype"), url("fonts/skaut-bold.otf") format("opentype"); font-display: swap; }
+:root, body, input, textarea, select, button { font-family: "TheMix", Roboto, system-ui, -apple-system, "Segoe UI", sans-serif; }
+h1, h2, h3, h4, .brand, .site-header h1, .card h2, .card h3, .eyebrow, .tile strong { font-family: "SkautBold", "TheMix", Roboto, sans-serif; font-weight: 700; letter-spacing: 0; }
+.material-symbols-outlined { font-family: "Material Symbols Outlined"; }
+
+/* Zápis: větší odstupy mezi bloky a přehlednější osnova */
+.form-card h3 { margin: 44px 0 14px; padding-top: 24px; border-top: 1px solid var(--md-outline-variant); font-size: 1.25rem; color: var(--md-primary); }
+.form-card form > .form-grid { margin-bottom: 8px; }
+.form-card .form-grid { gap: 20px 16px; }
+#items { display: flex; flex-direction: column; gap: 14px; margin-bottom: 18px; }
+#items > .item-row { margin: 0 0 0 0; padding: 16px; border: 1px solid var(--md-outline-variant); border-radius: 14px; background: #fff; }
+#items > .item-row[data-level="1"] { box-shadow: var(--md-elev-1); border-color: transparent; }
+#items > .item-row[data-level="2"], #items > .item-row[data-level="3"], #items > .item-row[data-level="4"], #items > .item-row[data-level="5"] { background: var(--md-surface); box-shadow: none; }
+#items > .item-row[hidden] { display: none; }
+.item-head input[data-field="title"] { font-family: "SkautBold", "TheMix", sans-serif; font-size: 1.05rem; }
+.item-row.collapsed .rte, .item-row.collapsed .item-foot { margin-top: 0; }
+.item-foot { margin-top: 14px; padding-top: 10px; border-top: 1px dashed var(--md-outline-variant); }
+.event-row { margin-bottom: 16px; padding: 16px 44px 16px 16px; border-radius: 12px; }
+.events-editor, .item-trips, .form-timetable { margin-top: 18px; }
+.resolution-row { margin-bottom: 14px; }
+.form-card [data-add] { margin-top: 6px; }
+.form-card .sign-row { margin-top: 24px; }
+.form-actions { position: sticky; bottom: 0; z-index: 15; display: flex; gap: 12px; align-items: center; margin: 36px -24px -24px; padding: 14px 24px; background: rgba(246, 251, 245, .96); border-top: 1px solid var(--md-outline-variant); border-radius: 0 0 16px 16px; backdrop-filter: blur(4px); }
+.form-card .form-actions .button + .button { margin-left: 0; }
+/* Odstupy mezi bloky na všech stránkách */
+main.container { display: flex; flex-direction: column; gap: 24px; padding-top: 32px; padding-bottom: 48px; }
+main.container > * { margin-top: 0; margin-bottom: 0; }
+main.container > .tabs { margin-bottom: -8px; }
+.admin-form { gap: 24px; margin-bottom: 0; }
+.minutes, .next-meeting { margin-bottom: 0; }
+.card h2 { margin-bottom: 18px; }
+.card h3 { margin: 32px 0 12px; }
+.card h2 + h3, .card > h3:first-child { margin-top: 8px; }
+.card p { margin: 0 0 12px; }
+.card ul:not(.plan-list):not(.meeting-list), .card ol { margin: 0 0 12px; padding-left: 22px; }
+.card li + li { margin-top: 8px; }
+.card form + form, .card .toolbar-inline + .toolbar-inline, .card form + .table-wrap { margin-top: 16px; }
+.card form + h3, .card table + h3, .card .tt-wrap + h3 { margin-top: 36px; }
+.card .doc-table { margin: 12px 0 20px; }
+.doc-item { margin-bottom: 18px; }
+.doc-item .rich, .doc-item .doc-event { margin-bottom: 12px; }
+.tiles { gap: 24px; }
+.plan-month .plan-list li { padding: 12px 0; }
+.lookup-card .agenda-row, .lookup-card .lookup-row { margin-bottom: 8px; }
+.policy, .role-grid { margin-top: 12px; }
+.module-card + .module-card { margin-top: 0; }
+.login-card + .login-card { margin-top: 24px; }
+.landing .card { margin-bottom: 24px; }
+@media (max-width: 760px) {
+    main.container { gap: 18px; padding-top: 22px; }
+    .form-actions { margin: 28px -16px -16px; padding: 12px 16px; }
+}
+/* Navigace v horní liště */
+.topbar-inner { gap: 16px; }
+.topbar-nav { display: flex; flex: 1; flex-wrap: wrap; gap: 4px; margin-left: 12px; }
+.nav-link { display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; color: var(--md-on-surface-variant); text-decoration: none; font-weight: 500; white-space: nowrap; transition: background-color .15s; }
+.nav-link .material-symbols-outlined { font-size: 20px; }
+.nav-link:hover { background: rgba(74, 103, 65, .1); color: var(--md-on-surface); }
+.nav-link.active { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+.nav-toggle { display: none; align-items: center; justify-content: center; width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--md-on-surface); cursor: pointer; }
+.nav-toggle:hover { background: rgba(74, 103, 65, .1); }
+@media (max-width: 960px) {
+    .nav-toggle { display: inline-flex; order: 2; margin-left: auto; }
+    .topbar-user { order: 3; }
+    .topbar-nav { display: none; order: 4; flex: 1 0 100%; flex-direction: column; margin: 0 0 8px; padding-top: 8px; border-top: 1px solid var(--md-outline-variant); }
+    .topbar-nav.open { display: flex; }
+    .nav-link { padding: 12px 16px; }
+}
+@media print { .topbar-nav, .nav-toggle { display: none !important; } }
+/* Menu: vždy schované pod tlačítkem vlevo (rozbalovací panel), administrace u přihlášeného uživatele */
+.topbar-inner { position: relative; flex-wrap: nowrap; }
+.nav-toggle { display: inline-flex; order: -1; margin-left: 0; flex: 0 0 auto; }
+.topbar-user { order: 0; margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.topbar-nav { display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 30; order: 0; flex: none; flex-direction: column; flex-wrap: nowrap; gap: 2px; min-width: 260px; margin: 0; padding: 8px; border: 0; border-radius: 16px; background: #fff; box-shadow: var(--md-elev-3); }
+.topbar-nav.open { display: flex; }
+.nav-link { padding: 12px 16px; border-radius: 12px; }
+.icon-button { display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 50%; color: var(--md-on-surface-variant); text-decoration: none; transition: background-color .15s; }
+.icon-button:hover { background: rgba(74, 103, 65, .12); color: var(--md-on-surface); }
+.icon-button.active { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+@media (max-width: 960px) {
+    .topbar-nav { order: 0; flex: none; margin: 0; padding: 8px; border-top: 0; }
+    .topbar-user { order: 0; }
+}
+@media (max-width: 600px) {
+    .who small { display: none; }
+    .topbar-inner { gap: 8px; }
+}

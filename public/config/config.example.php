@@ -19,6 +19,10 @@ return [
     // Role ze skautISu, které mají vždy plný přístup včetně administrace (název role, jak ji vidíte v hlavičce aplikace, nebo klíč role).
     'admin_roles' => ['Středisko: vedoucí/admin'],
 
+    // Omezení aplikace na jednotku podle registračního čísla (okres.středisko). Podřízené jednotky (oddíly, např. 722.10.01) se pouští také.
+    // Prázdné = bez omezení.
+    'unit_number' => '722.10',
+
     // Volitelně adresa aplikace (pro návrat ze skautISu), např. 'https://example.cz/rada/'.
     // Když je prázdná, zjistí se automaticky.
     'base_url' => '',

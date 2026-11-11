@@ -129,6 +129,24 @@ function skautisConfigured(): bool
     return trim((string) appSettings()['skautis_app_id']) !== '' && extension_loaded('soap');
 }
 
+/** Registrační číslo jednotky ze skautISu (např. „722.10“); při chybě prázdný řetězec. */
+function skautisUnitRegistration(SkautisClient $client, int $unitId, string $token): string
+{
+    static $cache = [];
+    if ($unitId <= 0) {
+        return '';
+    }
+    if (!isset($cache[$unitId])) {
+        try {
+            $detail = $client->call('OrganizationUnit', 'UnitDetail', ['ID' => $unitId], $token);
+            $cache[$unitId] = $detail instanceof stdClass ? trim((string) ($detail->RegistrationNumber ?? '')) : '';
+        } catch (SkautisException $exception) {
+            $cache[$unitId] = '';
+        }
+    }
+    return $cache[$unitId];
+}
+
 /**
  * Ověří token ve skautISu a vrátí identitu přihlášeného včetně zvolené role.
  *
@@ -156,6 +174,26 @@ function skautisIdentity(array $login): array
     }
     $selected ??= $roles[0] ?? null;
 
+    $unitNumber = '';
+    $required = trim((string) (appConfig()['unit_number'] ?? ''));
+    if ($required !== '') {
+        // aplikace je omezena na jednotku (a její podřízené jednotky) podle registračního čísla, např. 722.10
+        $ordered = $selected ? array_merge([$selected], array_filter($roles, static fn ($r): bool => $r !== $selected)) : [];
+        $selected = null;
+        foreach ($ordered as $role) {
+            $registration = skautisUnitRegistration($client, (int) ($role->ID_Unit ?? 0), $token);
+            if ($registration !== '' && ($registration === $required || str_starts_with($registration, $required . '.'))) {
+                $selected = $role;
+                $unitNumber = $registration;
+                $login['unit_id'] = (int) $role->ID_Unit;
+                break;
+            }
+        }
+        if ($selected === null) {
+            throw new SkautisException('Aplikace je určena jen pro jednotku ' . $required . '. Žádná z vašich aktivních rolí do ní nepatří.');
+        }
+    }
+
     $username = (string) ($user->UserName ?? '');
     $person = trim((string) ($user->Person ?? $user->PersonDisplayName ?? ''));
 
@@ -166,6 +204,7 @@ function skautisIdentity(array $login): array
         'role_name' => $selected ? (string) ($selected->DisplayName ?? $selected->Role ?? '') : '',
         'unit_id' => $login['unit_id'] ?? ($selected->ID_Unit ?? null),
         'unit_name' => $selected ? (string) ($selected->Unit ?? '') : '',
+        'unit_number' => $unitNumber,
         'logout_at' => $login['logout_at'],
     ];
 }

@@ -21,6 +21,10 @@ function streamPdf(string $body, string $filename, bool $inline = false): void
         ['bold', 'italic', 'font-bolditalic.ttf'],
     ];
     $fontCss = '';
+    if (is_file($fontsDir . '/skaut-bold.ttf')) {
+        $fontCss .= '@font-face { font-family: "SkautHeading"; font-weight: bold; font-style: normal; src: url("file://'
+            . str_replace('\\', '/', $fontsDir . '/skaut-bold.ttf') . '") format("truetype"); }' . "\n";
+    }
     if (is_file($fontsDir . '/font-regular.ttf')) {
         foreach ($variants as [$weight, $style, $file]) {
             $path = $fontsDir . '/' . $file;

@@ -139,7 +139,7 @@ renderHeader('Plán akcí', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Plán akcí, svátky a prázdniny</h1>
         <p>Rok <?= h($season) ?> (září – srpen). Akce z plánu se nabízejí jako chystané akce v zápisech a akce přidané v zápisu se objeví tady.</p>
     </div>

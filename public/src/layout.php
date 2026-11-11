@@ -24,11 +24,28 @@ function renderHeader(string $title, ?array $user = null, string $bodyClass = ''
 <nav class="topbar">
     <div class="container topbar-inner">
         <a class="brand" href="portal.php"><?php if ($logo = logoUrl()): ?><img class="brand-logo" src="<?= h($logo) ?>" alt=""><?php else: ?><?= icon('camping') ?> <?php endif; ?>Středisková rada</a>
+        <button class="nav-toggle" type="button" aria-label="Menu" aria-expanded="false" aria-controls="topbar-nav" data-nav-toggle title="Menu"><?= icon('menu') ?></button>
+        <div class="topbar-nav" id="topbar-nav">
+            <?php
+            $currentPage = basename((string) ($_SERVER['SCRIPT_NAME'] ?? ''));
+            $navLinks = [['portal.php', 'Rozcestník', icon('home')]];
+            foreach (appModules() as $moduleKey => $module) {
+                if ($moduleKey !== 'admin' && ($module['tile'] ?? true) && canAccess($user, $moduleKey)) {
+                    $navLinks[] = [$module['url'], $module['title'], $module['icon']];
+                }
+            }
+            foreach ($navLinks as [$navUrl, $navTitle, $navIcon]): ?>
+                <a class="nav-link<?= $currentPage === $navUrl ? ' active' : '' ?>" href="<?= h($navUrl) ?>"<?= $currentPage === $navUrl ? ' aria-current="page"' : '' ?>><?= $navIcon ?> <?= h($navTitle) ?></a>
+            <?php endforeach; ?>
+        </div>
         <div class="topbar-user">
             <span class="who">
                 <strong><?= h($user['name']) ?></strong>
                 <small><?= h($user['role_name'] ?: 'bez role') ?><?= $user['type'] === 'demo' ? ' · testovací vstup' : '' ?></small>
             </span>
+            <?php if (canAccess($user, 'admin')): ?>
+                <a class="icon-button<?= basename((string) ($_SERVER['SCRIPT_NAME'] ?? '')) === 'admin.php' ? ' active' : '' ?>" href="admin.php" title="Administrace" aria-label="Administrace"><?= icon('settings') ?></a>
+            <?php endif; ?>
             <a class="button secondary small" href="logout.php">Odhlásit</a>
         </div>
     </div>

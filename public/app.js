@@ -71,6 +71,15 @@
 
     document.querySelectorAll('[data-name]').forEach(reindex);
 
+    // Podbody jsou v zápisu při otevření zabalené (rozbalí se šipkou u nadřazeného bodu).
+    var itemsContainer = document.getElementById('items');
+    if (itemsContainer) {
+        Array.prototype.forEach.call(itemsContainer.children, function (row) {
+            if (row.classList.contains('has-subs')) { row.classList.add('collapsed'); }
+        });
+        applyCollapse(itemsContainer);
+    }
+
     document.addEventListener('click', function (event) {
         var add = event.target.closest('[data-add]');
         if (add) {
@@ -557,3 +566,29 @@ document.addEventListener('pointerdown', function (event) {
         container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 })();
+(function () {
+    var toggle = document.querySelector('[data-nav-toggle]');
+    var nav = document.getElementById('topbar-nav');
+    if (!toggle || !nav) return;
+    toggle.addEventListener('click', function () {
+        var open = nav.classList.toggle('open');
+        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+})();
+document.addEventListener('click', function (event) {
+    var nav = document.getElementById('topbar-nav');
+    var toggle = document.querySelector('[data-nav-toggle]');
+    if (!nav || !toggle || !nav.classList.contains('open')) return;
+    if (!nav.contains(event.target) && !toggle.contains(event.target)) {
+        nav.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+});
+document.addEventListener('keydown', function (event) {
+    var nav = document.getElementById('topbar-nav');
+    if (event.key === 'Escape' && nav && nav.classList.contains('open')) {
+        nav.classList.remove('open');
+        var toggle = document.querySelector('[data-nav-toggle]');
+        if (toggle) { toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); }
+    }
+});

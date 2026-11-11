@@ -9,7 +9,7 @@ renderHeader('Novinky', $user);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Novinky v aplikaci</h1>
         <p>Aktuální verze <?= h(APP_VERSION) ?></p>
     </div>

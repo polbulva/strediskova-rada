@@ -1,6 +1,6 @@
 @page { margin: 18mm 16mm 18mm 16mm; }
 body { font-family: "SkautFont", "DejaVu Sans", sans-serif; font-size: 10pt; color: #1b1b1b; line-height: 1.4; }
-h2, h3, h4 { margin: 0; }
+h2, h3, h4 { margin: 0; font-family: "SkautHeading", "SkautFont", "DejaVu Sans", sans-serif; }
 .doc-logo { max-height: 22mm; max-width: 60mm; margin: 0 0 8px; }
 .doc-title { font-size: 17pt; color: #184d38; margin: 0 0 10px; }
 .doc-meta { margin: 0 0 6px; }

@@ -210,7 +210,7 @@ renderHeader('Administrace', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Administrace</h1>
         <p>Určete, které role ze skautISu mají přístup do jednotlivých částí aplikace.</p>
     </div>

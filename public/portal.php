@@ -67,40 +67,6 @@ renderHeader('Rozcestník', $user);
 
 <main class="container">
     <?php renderFlash(); ?>
-    <?php if ($nextEvent): ?>
-        <section class="card next-meeting">
-            <p class="eyebrow">Nejbližší středisková rada</p>
-            <h2><?= h($nextEvent['title']) ?></h2>
-            <p class="doc-meta">
-                <span><strong>Datum:</strong> <?= h(formatDate($nextEvent['start']->format('Y-m-d'))) ?></span>
-                <?php if (!$nextEvent['all_day']): ?>
-                    <span><strong>Čas:</strong> <?= h($nextEvent['start']->format('G:i')) ?><?= $nextEvent['end'] ? ' – ' . h($nextEvent['end']->format('G:i')) : '' ?></span>
-                <?php endif; ?>
-                <?php if ($nextEvent['location'] !== ''): ?><span><strong>Místo:</strong> <?= h($nextEvent['location']) ?></span><?php endif; ?>
-            </p>
-            <?php if ($nextEvent['description'] !== ''): ?>
-                <p><?= nl2br(h($nextEvent['description'])) ?></p>
-            <?php endif; ?>
-            <?php if ($carried): ?>
-                <h3>Body k řešení z minulé rady</h3>
-                <ul>
-                    <?php foreach ($carried as $row): ?><li><?= h($row['title']) ?></li><?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-            <?php if (canAccess($user, 'minutes') && ($nextMinutesId || canAccess($user, 'minutes_edit'))): ?>
-                <a class="button" href="minutes.php?<?= $nextMinutesId ? 'id=' . (int) $nextMinutesId : 'event=' . rawurlencode($nextEvent['key']) ?>">
-                    <?= $nextMinutesId ? 'Otevřít zápis' : 'Vytvořit zápis' ?>
-                </a>
-            <?php endif; ?>
-        </section>
-    <?php elseif ($calendarProblem): ?>
-        <p class="message error"><?= h($calendarProblem) ?></p>
-    <?php elseif (!calendarConfigured()): ?>
-        <p class="message error">Kalendář střediskových rad zatím není připojen<?= canAccess($user, 'admin') ? ' – nastavte ho v <a href="admin.php">Administraci</a>' : '' ?>.</p>
-    <?php else: ?>
-        <p class="message error">V kalendáři nebyla nalezena žádná nadcházející událost.
-            <?php if ($calendarDebug): ?><br><small><?= h($calendarDebug) ?></small><?php endif; ?></p>
-    <?php endif; ?>
     <?php if ($visible): ?>
         <div class="tiles">
             <?php foreach ($visible as $key => $module): ?>
@@ -116,6 +82,31 @@ renderHeader('Rozcestník', $user);
             <h2>Zatím nemáte přístup do žádné části</h2>
             <p>Vaše role (<?= h($user['role_name'] ?: 'bez role') ?>) zatím nemá přiřazená oprávnění. Požádejte správce aplikace, aby vám přístup nastavil.</p>
         </section>
+    <?php endif; ?>
+    <?php if ($nextEvent): ?>
+        <section class="card next-meeting">
+            <p class="eyebrow">Nejbližší středisková rada</p>
+            <h2><?= h($nextEvent['title']) ?></h2>
+            <p class="doc-meta">
+                <span><strong>Datum:</strong> <?= h(formatDate($nextEvent['start']->format('Y-m-d'))) ?></span>
+                <?php if (!$nextEvent['all_day']): ?>
+                    <span><strong>Čas:</strong> <?= h($nextEvent['start']->format('G:i')) ?><?= $nextEvent['end'] ? ' – ' . h($nextEvent['end']->format('G:i')) : '' ?></span>
+                <?php endif; ?>
+                <?php if ($nextEvent['location'] !== ''): ?><span><strong>Místo:</strong> <?= h($nextEvent['location']) ?></span><?php endif; ?>
+            </p>
+            <?php if (canAccess($user, 'minutes') && ($nextMinutesId || canAccess($user, 'minutes_edit'))): ?>
+                <a class="button" href="minutes.php?<?= $nextMinutesId ? 'id=' . (int) $nextMinutesId : 'event=' . rawurlencode($nextEvent['key']) ?>">
+                    <?= $nextMinutesId ? 'Otevřít zápis' : 'Vytvořit zápis' ?>
+                </a>
+            <?php endif; ?>
+        </section>
+    <?php elseif ($calendarProblem): ?>
+        <p class="message error"><?= h($calendarProblem) ?></p>
+    <?php elseif (!calendarConfigured()): ?>
+        <p class="message error">Kalendář střediskových rad zatím není připojen<?= canAccess($user, 'admin') ? ' – nastavte ho v <a href="admin.php">Administraci</a>' : '' ?>.</p>
+    <?php else: ?>
+        <p class="message error">V kalendáři nebyla nalezena žádná nadcházející událost.
+            <?php if ($calendarDebug): ?><br><small><?= h($calendarDebug) ?></small><?php endif; ?></p>
     <?php endif; ?>
 </main>
 <?php renderFooter(); ?>

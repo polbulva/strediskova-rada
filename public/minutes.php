@@ -264,7 +264,7 @@ renderHeader('Zápisy z rady', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Zápisy z rady</h1>
         <p><?= $canEditMinutes ? 'Vytvořte, uložte a vytiskněte zápis z rady.' : 'Zápisy z rad ke čtení a stažení do PDF.' ?></p>
     </div>
@@ -454,10 +454,12 @@ renderHeader('Zápisy z rady', $currentUser);
                     </div>
                     </div>
 
-                    <button class="button" type="submit">Uložit zápis</button>
-                    <?php if ($editId): ?>
-                        <a class="button secondary" href="minutes.php?id=<?= (int) $editId ?>">Zrušit</a>
-                    <?php endif; ?>
+                    <div class="form-actions">
+                        <button class="button" type="submit">Uložit zápis</button>
+                        <?php if ($editId): ?>
+                            <a class="button secondary" href="minutes.php?id=<?= (int) $editId ?>">Zrušit</a>
+                        <?php endif; ?>
+                    </div>
                 </form>
 
                 <?php if ($canEditSchedule): ?>

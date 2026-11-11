@@ -109,7 +109,7 @@ renderHeader('Rozpis schůzek', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Rozpis schůzek družin</h1>
         <p>Sezóna <?= h($season) ?> (září – červen). Rozpis se zobrazuje i v každém zápisu z rady.</p>
     </div>
