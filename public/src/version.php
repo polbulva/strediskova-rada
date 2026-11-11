@@ -1,11 +1,28 @@
 <?php
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.3.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '1.3.0',
+            'date' => '2026-11-12',
+            'changes' => [
+                'Plán akcí lze stáhnout jako PDF (tlačítko Stáhnout PDF).',
+                'Státní svátky ČR jsou pevně dané zákonem (č. 245/2000 Sb.) a dopočítávají se automaticky včetně Velkého pátku a Velikonočního pondělí – není třeba je zadávat ani aktualizovat.',
+            ],
+        ],
+        [
+            'version' => '1.2.0',
+            'date' => '2026-11-11',
+            'changes' => [
+                'Nová stránka Plán akcí: akce na rok (září–srpen) po měsících spolu se státními svátky a školními prázdninami.',
+                'Akce přidaná v plánu se nabízí jako chystaná akce v zápisech; akce přidaná v zápisu se objeví v plánu.',
+                'Nové oprávnění „Úprava plánu akcí“ (Administrace → Oprávnění). Vyžaduje spustit skript 011_plan_akci_prazdniny.sql.',
+            ],
+        ],
         [
             'version' => '1.1.0',
             'date' => '2026-11-11',

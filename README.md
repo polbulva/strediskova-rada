@@ -95,3 +95,4 @@ database/migrations/   očíslované SQL skripty pro MySQL (spouštějí se ruč
 
 Pro produkční nasazení používejte HTTPS.
 - **Úprava zápisů:** zápisy zobrazí a stáhnou do PDF všichni s přístupem k Zápisům z rady; vytvářet, upravovat a mazat smí jen role s oprávněním Úprava zápisů z rady (Administrace, Oprávnění; ve výchozím stavu jen správce). Chystané akce mají formulář název akce, termín, garant, shrnutí.
+- **Plán akcí:** stránka plan.php ukazuje akce roku (září až srpen) po měsících, státní svátky ČR (pevně podle zákona, dopočítávají se automaticky včetně Velikonoc), export do PDF (plan_pdf.php) a školní prázdniny (tabulka school_breaks, přidávají se na stránce; skript 011_plan_akci_prazdniny.sql předvyplní prázdniny 2026/27 bez jarních, které se liší podle okresu, takže je doplňte ručně). Akce plánu jsou stejné záznamy jako chystané akce v zápisech. Úprava vyžaduje oprávnění Úprava plánu akcí.

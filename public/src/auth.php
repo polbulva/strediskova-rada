@@ -40,6 +40,21 @@ function appModules(): array
             'policy' => 'roles',
             'tile' => false,
         ],
+        'plan' => [
+            'title' => 'Plán akcí',
+            'description' => 'Plán akcí na rok (září–srpen), státní svátky a školní prázdniny.',
+            'icon' => '🗓️',
+            'url' => 'plan.php',
+            'policy' => 'all',
+        ],
+        'plan_edit' => [
+            'title' => 'Úprava plánu akcí',
+            'description' => 'Přidávání, úprava a mazání akcí a školních prázdnin v plánu.',
+            'icon' => '✏️',
+            'url' => 'plan.php',
+            'policy' => 'roles',
+            'tile' => false,
+        ],
         'admin' => [
             'title' => 'Administrace',
             'description' => 'Nastavení, které role mají přístup do jednotlivých částí aplikace.',
