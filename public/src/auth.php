@@ -92,8 +92,19 @@ function isSuperAdmin(?array $user): bool
     if ($user['type'] === 'demo') {
         return $user['role_key'] === DEMO_ADMIN_ROLE;
     }
-    $admins = array_map('mb_strtolower', array_map('strval', (array) appConfig()['admin_usernames']));
-    return $user['username'] !== '' && in_array(mb_strtolower($user['username']), $admins, true);
+    $admins = array_map('mb_strtolower', array_map('strval', (array) (appConfig()['admin_usernames'] ?? [])));
+    if ($user['username'] !== '' && in_array(mb_strtolower($user['username']), $admins, true)) {
+        return true;
+    }
+
+    // role ze skautISu s plným přístupem (název nebo klíč role, případně „středisko: role“)
+    $adminRoles = array_map(static fn ($role): string => mb_strtolower(trim((string) $role)), (array) (appConfig()['admin_roles'] ?? ['Středisko: vedoucí/admin']));
+    $candidates = array_filter([
+        mb_strtolower(trim((string) ($user['role_name'] ?? ''))),
+        mb_strtolower(trim((string) ($user['role_key'] ?? ''))),
+        mb_strtolower(trim((string) ($user['unit_name'] ?? '') . ': ' . (string) ($user['role_name'] ?? ''))),
+    ], static fn (string $value): bool => $value !== '' && $value !== ':');
+    return (bool) array_intersect($candidates, $adminRoles);
 }
 
 /** @return array{policy: string, roles: string[]} */

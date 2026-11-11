@@ -1,11 +1,18 @@
 <?php
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.4.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '1.4.0',
+            'date' => '2026-11-11',
+            'changes' => [
+                'Přihlášení přes skautIS: návrat ze skautISu na úvodní stránku se zpracuje a uživatel se dostane na rozcestník.',
+            ],
+        ],
         [
             'version' => '1.3.0',
             'date' => '2026-11-12',

@@ -2,6 +2,12 @@
 
 require __DIR__ . '/src/bootstrap.php';
 
+// skautIS vrací přihlášení POSTem na adresu nastavenou u aplikace; pokud je to úvodní stránka, zpracuje ho login.php.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['skautIS_Token'])) {
+    require __DIR__ . '/login.php';
+    exit;
+}
+
 if (currentUser()) {
     redirect('portal.php');
 }

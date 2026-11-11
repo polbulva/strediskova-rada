@@ -16,6 +16,8 @@ return [
 
     // Uživatelská jména ze skautISu, která mají vždy plný přístup včetně administrace.
     'admin_usernames' => [],
+    // Role ze skautISu, které mají vždy plný přístup včetně administrace (název role, jak ji vidíte v hlavičce aplikace, nebo klíč role).
+    'admin_roles' => ['Středisko: vedoucí/admin'],
 
     // Volitelně adresa aplikace (pro návrat ze skautISu), např. 'https://example.cz/rada/'.
     // Když je prázdná, zjistí se automaticky.
