@@ -392,7 +392,7 @@ renderHeader('Zápisy z rady', $currentUser);
                         if (($item['item_type'] ?? '') === 'upcoming' && $upcomingHost === null) { $upcomingHost = $index; }
                     }
                     $pastHtml = renderPastEventsEditor($pastEvents);
-                    $upcomingHtml = renderUpcomingEventsEditor($upcomingEvents, $loadedEventIds);
+                    $upcomingHtml = renderUpcomingEventsEditor($upcomingEvents, $loadedEventIds, loadPickableEvents($pdo, $values['meeting_date'] ?: date('Y-m-d'), array_column($upcomingEvents, 'id')));
                     $tripContext = ['trips' => $trips, 'units' => $tripUnits, 'groups' => $tripGroups];
                     ?>
                     <div id="items" data-name="items">

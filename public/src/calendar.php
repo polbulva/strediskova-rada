@@ -59,9 +59,26 @@ function savePlanCalendarUrl(PDO $pdo, string $url): void
     )->execute(['v' => $url]);
 }
 
+/** Konec události z iCalu (celodenní jen v jeden den nebo konec před začátkem = bez konce). */
+function icsEventEnd(array $item): array
+{
+    $end = $item['end'] ?? null;
+    if (!$end instanceof DateTimeInterface) {
+        return ['end_date' => null, 'end_time' => null];
+    }
+    if ($item['all_day']) {
+        $last = DateTimeImmutable::createFromInterface($end)->modify('-1 day');
+        return ['end_date' => $last->format('Y-m-d') > $item['start']->format('Y-m-d') ? $last->format('Y-m-d') : null, 'end_time' => null];
+    }
+    return [
+        'end_date' => $end->format('Y-m-d') !== $item['start']->format('Y-m-d') ? $end->format('Y-m-d') : null,
+        'end_time' => $end > $item['start'] ? $end->format('H:i:s') : null,
+    ];
+}
+
 /**
  * Načte akce roku z kalendáře plánu akcí (iCal) do tabulky events. Existující akce (podle UID) se aktualizují
- * jen v názvu, termínu a čase; garant a shrnutí zůstávají. Akce smazané v kalendáři se v plánu nemažou.
+ * jen v názvu, termínu, čase a konci; garant a shrnutí zůstávají. Akce smazané v kalendáři se v plánu nemažou.
  *
  * @return array{added: int, updated: int}
  */
@@ -87,8 +104,8 @@ function syncPlanFromCalendar(PDO $pdo, string $season): array
         $baseUids[$base] = ($baseUids[$base] ?? 0) + 1;
     }
     $find = $pdo->prepare('SELECT id FROM events WHERE ical_key = :k OR ical_key = :b LIMIT 1');
-    $update = $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time WHERE id = :id');
-    $insert = $pdo->prepare('INSERT INTO events (name, event_date, event_time, patron, notes, ical_key) VALUES (:name, :date, :time, \'\', :notes, :k)');
+    $update = $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, end_date = :end_date, end_time = :end_time WHERE id = :id');
+    $insert = $pdo->prepare('INSERT INTO events (name, event_date, event_time, end_date, end_time, patron, notes, ical_key) VALUES (:name, :date, :time, :end_date, :end_time, \'\', :notes, :k)');
     $added = $updated = 0;
     $known = [];
     foreach ($pdo->query("SELECT name, event_date FROM events WHERE event_date BETWEEN '$from' AND '$to'")->fetchAll() as $row) {
@@ -96,7 +113,7 @@ function syncPlanFromCalendar(PDO $pdo, string $season): array
     }
     foreach ($items as $item) {
         $name = mb_substr($item['title'] !== '' ? $item['title'] : 'Akce', 0, 255);
-        $params = ['name' => $name, 'date' => $item['start']->format('Y-m-d'), 'time' => $item['all_day'] ? null : $item['start']->format('H:i:s')];
+        $params = ['name' => $name, 'date' => $item['start']->format('Y-m-d'), 'time' => $item['all_day'] ? null : $item['start']->format('H:i:s')] + icsEventEnd($item);
         $base = preg_replace('~@\d{4}-\d{2}-\d{2}$~', '', $item['key']);
         $key = $baseUids[$base] === 1 ? $base : $item['key'];
         $find->execute(['k' => mb_substr($item['key'], 0, 255), 'b' => mb_substr($key, 0, 255)]);
@@ -231,17 +248,22 @@ function googleEventIdFromKey(?string $key): string
 
 function googleEventBody(array $event): array
 {
-    $notes = trim(html_entity_decode(strip_tags(str_replace(['</p>', '</li>', '<br>', '<br/>', '<br />'], "\n", renderNotes((string) ($event['notes'] ?? '')))), ENT_QUOTES, 'UTF-8'));
-    $description = trim(($event['patron'] !== '' ? 'Garant: ' . $event['patron'] . "\n" : '') . $notes);
-    $body = ['summary' => (string) $event['name'], 'description' => mb_substr($description, 0, 8000)];
+    // Poznámky ani garant se do kalendáře neposílají; prázdný popis při aktualizaci smaže dříve odeslané.
+    $body = ['summary' => (string) $event['name'], 'description' => ''];
     $date = new DateTimeImmutable($event['event_date'], calendarTimezone());
+    $endDate = !empty($event['end_date']) ? (string) $event['end_date'] : $event['event_date'];
     if (!empty($event['event_time'])) {
         $start = new DateTimeImmutable($event['event_date'] . ' ' . $event['event_time'], calendarTimezone());
+        $end = new DateTimeImmutable($endDate . ' ' . (!empty($event['end_time']) ? $event['end_time'] : $event['event_time']), calendarTimezone());
+        if ($end <= $start) {
+            $end = $start->modify('+1 hour');
+        }
         $body['start'] = ['dateTime' => $start->format('c'), 'timeZone' => 'Europe/Prague'];
-        $body['end'] = ['dateTime' => $start->modify('+1 hour')->format('c'), 'timeZone' => 'Europe/Prague'];
+        $body['end'] = ['dateTime' => $end->format('c'), 'timeZone' => 'Europe/Prague'];
     } else {
+        $last = new DateTimeImmutable($endDate, calendarTimezone());
         $body['start'] = ['date' => $date->format('Y-m-d')];
-        $body['end'] = ['date' => $date->modify('+1 day')->format('Y-m-d')];
+        $body['end'] = ['date' => max($date, $last)->modify('+1 day')->format('Y-m-d')];
     }
     return $body;
 }

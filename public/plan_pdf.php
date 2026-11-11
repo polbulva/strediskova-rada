@@ -36,7 +36,7 @@ $logo = logoPath();
     <tbody>
     <?php foreach ($timeline as $entries): foreach ($entries as $entry): if ($entry['kind'] !== 'event') { continue; } $event = $entry['event']; ?>
         <tr>
-            <td><?= h(formatDate($event['event_date'])) ?></td>
+            <td><?= h(eventWhen($event, false, false)) ?></td>
             <td><?= h($event['name']) ?></td>
         </tr>
     <?php endforeach; endforeach; ?>
@@ -53,7 +53,7 @@ $logo = logoPath();
         <?php foreach ($entries as $entry): ?>
             <?php if ($entry['kind'] === 'event'): $event = $entry['event']; ?>
                 <tr>
-                    <td><?= h(formatDate($event['event_date'])) ?><?= eventTime($event) !== '' ? ' ' . h(eventTime($event)) : '' ?></td>
+                    <td><?= h(eventWhen($event)) ?></td>
                     <td><strong><?= h($event['name']) ?></strong><?= $withNotes ? renderNotes((string) $event['notes']) : '' ?></td>
                     <td><?= h($event['patron']) ?></td>
                 </tr>

@@ -89,15 +89,17 @@ function savePlanEvent(PDO $pdo, array $event): int
         'name' => $event['name'],
         'date' => $event['event_date'],
         'time' => $event['event_time'] ?: null,
+        'end_date' => ($event['end_date'] ?? '') ?: null,
+        'end_time' => ($event['end_time'] ?? '') ?: null,
         'patron' => $event['patron'],
         'notes' => $event['notes'] ?: null,
     ];
     if ($event['id']) {
-        $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, patron = :patron, notes = :notes WHERE id = :id')
+        $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, end_date = :end_date, end_time = :end_time, patron = :patron, notes = :notes WHERE id = :id')
             ->execute($params + ['id' => $event['id']]);
         return (int) $event['id'];
     }
-    $pdo->prepare('INSERT INTO events (name, event_date, event_time, patron, notes) VALUES (:name, :date, :time, :patron, :notes)')
+    $pdo->prepare('INSERT INTO events (name, event_date, event_time, end_date, end_time, patron, notes) VALUES (:name, :date, :time, :end_date, :end_time, :patron, :notes)')
         ->execute($params);
     return (int) $pdo->lastInsertId();
 }

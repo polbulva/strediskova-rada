@@ -525,3 +525,21 @@
         });
     }
 })();
+
+(function () {
+    document.addEventListener('click', function (event) {
+        var add = event.target.closest('[data-pick-add]');
+        if (!add) return;
+        var picker = add.closest('.event-picker');
+        var select = picker.querySelector('[data-pick-select]');
+        if (!select.value) { select.focus(); return; }
+        var template = picker.querySelector('[data-pick-template="' + select.value + '"]');
+        var container = document.getElementById('events');
+        if (!template || !container) return;
+        container.insertAdjacentHTML('beforeend', template.innerHTML.replace(/__INDEX__/g, String(container.children.length)));
+        template.remove();
+        select.querySelector('option[value="' + select.value + '"]').remove();
+        select.value = '';
+        container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+})();
