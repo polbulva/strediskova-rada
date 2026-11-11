@@ -525,3 +525,18 @@
         });
     }
 })();
+
+// Material ripple na tlačítkách
+document.addEventListener('pointerdown', function (event) {
+    var button = event.target.closest && event.target.closest('.button');
+    if (!button || button.classList.contains('disabled')) { return; }
+    var rect = button.getBoundingClientRect();
+    var size = Math.max(rect.width, rect.height);
+    var ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (event.clientX - rect.left - size / 2) + 'px';
+    ripple.style.top = (event.clientY - rect.top - size / 2) + 'px';
+    button.appendChild(ripple);
+    setTimeout(function () { ripple.remove(); }, 650);
+});

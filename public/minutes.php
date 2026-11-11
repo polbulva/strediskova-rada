@@ -264,7 +264,7 @@ renderHeader('Zápisy z rady', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
+        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
         <h1>Zápisy z rady</h1>
         <p><?= $canEditMinutes ? 'Vytvořte, uložte a vytiskněte zápis z rady.' : 'Zápisy z rad ke čtení a stažení do PDF.' ?></p>
     </div>
@@ -289,7 +289,7 @@ renderHeader('Zápisy z rady', $currentUser);
         ?>
         <article class="card minutes">
             <div class="minutes-toolbar">
-                <a class="button secondary" href="minutes.php">← Zpět</a>
+                <a class="button secondary" href="minutes.php"><?= icon('arrow_back') ?> Zpět</a>
                 <?php if ($canEditMinutes): ?><a class="button secondary" href="minutes.php?edit=<?= (int) $meeting['id'] ?>">Upravit</a><?php endif; ?>
                 <button class="button secondary" type="button" onclick="window.print()">Tisknout</button>
                 <a class="button secondary" href="minutes_pdf.php?id=<?= (int) $meeting['id'] ?>">Stáhnout PDF</a>
@@ -335,7 +335,7 @@ renderHeader('Zápisy z rady', $currentUser);
                     <input type="hidden" name="id" value="<?= $editId ? (int) $editId : '' ?>">
                     <input type="hidden" name="calendar_event_key" value="<?= h($values['calendar_event_key']) ?>">
                     <?php if ($values['calendar_event_key'] !== ''): ?>
-                        <p class="muted">📅 Zápis je navázán na událost v kalendáři.</p>
+                        <p class="muted"><?= icon('event') ?> Zápis je navázán na událost v kalendáři.</p>
                     <?php endif; ?>
                     <p class="muted">Rozpis schůzek družin se do zápisu doplní automaticky podle sezóny. <?php if (canAccess($currentUser, 'schedule_edit')): ?><a href="schedule.php">Upravit rozpis</a><?php endif; ?></p>
                     <div class="form-grid">
@@ -494,7 +494,7 @@ renderHeader('Zápisy z rady', $currentUser);
                             <li>
                                 <a href="minutes.php?<?= $linkedId ? 'id=' . (int) $linkedId : 'event=' . rawurlencode($calendarEvent['key']) ?>">
                                     <strong><?= h(formatDate($calendarEvent['start']->format('Y-m-d'))) ?><?= $calendarEvent['all_day'] ? '' : ' ' . h($calendarEvent['start']->format('G:i')) ?> – <?= h($calendarEvent['title']) ?></strong>
-                                    <span><?= $linkedId ? '✔ Zápis existuje' : '＋ Vytvořit zápis' ?></span>
+                                    <span><?= $linkedId ? icon('check_circle') . ' Zápis existuje' : icon('add') . ' Vytvořit zápis' ?></span>
                                 </a>
                             </li>
                         <?php endforeach; ?>

@@ -210,7 +210,7 @@ renderHeader('Administrace', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
+        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
         <h1>Administrace</h1>
         <p>Určete, které role ze skautISu mají přístup do jednotlivých částí aplikace.</p>
     </div>
@@ -230,7 +230,7 @@ renderHeader('Administrace', $currentUser);
     </nav>
     <?php if ($pdo && $tab === 'connections'): ?>
         <section class="card">
-            <h2>🖼 Logo střediska</h2>
+            <h2><?= icon('image') ?> Logo střediska</h2>
             <p class="muted">Zobrazuje se v hlavičce aplikace a v zápisu (včetně tisku). Formáty PNG, JPEG, GIF, WebP do 2 MB.</p>
             <?php if ($currentLogo = logoUrl()): ?><p><img class="logo-preview" src="<?= h($currentLogo) ?>" alt="Logo"></p><?php endif; ?>
             <form method="post" enctype="multipart/form-data">
@@ -243,8 +243,8 @@ renderHeader('Administrace', $currentUser);
         </section>
         <?php $skautis = appSettings(); ?>
         <section class="card">
-            <h2>🔐 Připojení ke skautISu</h2>
-            <p class="muted">ID aplikace přidělí správce skautISu (skaut.cz → skautIS → Aplikace). Návratová adresa aplikace: <code><?= h(baseUrl() . 'login.php') ?></code>. Stav: <?= skautisConfigured() ? '✔ nastaveno' : '✖ nenastaveno (nebo chybí PHP rozšíření SOAP)' ?>.</p>
+            <h2><?= icon('lock') ?> Připojení ke skautISu</h2>
+            <p class="muted">ID aplikace přidělí správce skautISu (skaut.cz → skautIS → Aplikace). Návratová adresa aplikace: <code><?= h(baseUrl() . 'login.php') ?></code>. Stav: <?= skautisConfigured() ? icon('check_circle') . ' nastaveno' : icon('cancel') . ' nenastaveno (nebo chybí PHP rozšíření SOAP)' ?>.</p>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <input type="hidden" name="action" value="skautis">
@@ -264,7 +264,7 @@ renderHeader('Administrace', $currentUser);
     <?php if ($pdo && $tab === 'connections'): ?>
         <?php $cal = calendarSettings(); ?>
         <section class="card">
-            <h2>📅 Google Kalendář střediskových rad</h2>
+            <h2><?= icon('calendar_month') ?> Google Kalendář střediskových rad</h2>
             <p class="muted">Vložte tajnou adresu ve formátu iCal: Google Kalendář → Nastavení kalendáře → Integrace kalendáře → „Tajná adresa ve formátu iCal“. Adresa se před uložením ověří. Prázdné pole kalendář odpojí.</p>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
@@ -282,7 +282,7 @@ renderHeader('Administrace', $currentUser);
 
     <?php if ($pdo && $tab === 'connections'): ?>
         <section class="card">
-            <h2>🗓️ Google Kalendář plánu akcí</h2>
+            <h2><?= icon('event') ?> Google Kalendář plánu akcí</h2>
             <p class="muted">Tajná adresa iCal kalendáře, ze kterého se na stránce Plán akcí načítají akce tlačítkem „Synchronizovat s kalendářem“. Může jít o jiný kalendář než u střediskových rad. Adresa se před uložením ověří. Prázdné pole kalendář odpojí.</p>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
@@ -365,14 +365,14 @@ renderHeader('Administrace', $currentUser);
                 $id = isset($row['id']) ? (string) (int) $row['id'] : '__N__';
                 $base = $prefix . '[' . $id . ']';
                 return '<div class="agenda-row' . ($level > 1 ? ' lvl-' . $level : '') . '" data-agenda-row>'
-                    . '<button type="button" class="collapse-toggle" data-agenda-toggle title="Sbalit / rozbalit podbody">▾<span class="collapse-count"></span></button><button type="button" data-agenda-move="-1" title="Nahoru (i s podbody)">↑</button><button type="button" data-agenda-move="1" title="Dolů (i s podbody)">↓</button>'
+                    . '<button type="button" class="collapse-toggle" data-agenda-toggle title="Sbalit / rozbalit podbody">' . icon('expand_more') . '<span class="collapse-count"></span></button><button type="button" data-agenda-move="-1" title="Nahoru (i s podbody)">' . icon('arrow_upward') . '</button><button type="button" data-agenda-move="1" title="Dolů (i s podbody)">' . icon('arrow_downward') . '</button>'
                     . '<input type="hidden" data-level name="' . $base . '[level]" value="' . $level . '">'
-                    . '<button type="button" data-agenda-indent="-1" title="Zrušit odsazení (bod)">⇤</button>'
-                    . '<button type="button" data-agenda-indent="1" title="Odsadit (podbod)">⇥</button>'
+                    . '<button type="button" data-agenda-indent="-1" title="Zrušit odsazení (bod)">' . icon('format_indent_decrease') . '</button>'
+                    . '<button type="button" data-agenda-indent="1" title="Odsadit (podbod)">' . icon('format_indent_increase') . '</button>'
                     . '<input type="text" maxlength="255" name="' . $base . '[title]" value="' . h($row['title'] ?? '') . '" placeholder="Název bodu">'
                     . '<label class="check" title="Obsah se vždy převezme z předchozího zápisu"><input type="checkbox" name="' . $base . '[carry]" value="1"' . (!empty($row['always_carry']) ? ' checked' : '') . '> Přenášet</label>'
                     . $typeSelect($base, (string) ($row['item_type'] ?? ''))
-                    . (isset($row['id']) ? '<label class="check"><input type="checkbox" name="' . $base . '[delete]" value="1"> Smazat</label>' : '<button type="button" data-agenda-remove title="Odebrat">✕</button>')
+                    . (isset($row['id']) ? '<label class="check"><input type="checkbox" name="' . $base . '[delete]" value="1"> Smazat</label>' : '<button type="button" data-agenda-remove title="Odebrat">' . icon('close') . '</button>')
                     . '</div>';
             };
             ?>

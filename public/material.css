@@ -1,0 +1,130 @@
+/* Google Material Design 3 – vrstva nad style.css (barevné tokeny, tvary, elevace, typografie) */
+:root {
+    --md-primary: #4a6741;
+    --md-on-primary: #ffffff;
+    --md-primary-container: #dde5d0;
+    --md-on-primary-container: #1f2a17;
+    --md-secondary-container: #e3e8d8;
+    --md-on-secondary-container: #0a2014;
+    --md-surface: #f6fbf5;
+    --md-surface-container: #eaf0e9;
+    --md-surface-container-high: #e4eae3;
+    --md-on-surface: #181d19;
+    --md-on-surface-variant: #404943;
+    --md-outline: #707973;
+    --md-outline-variant: #c0c9c1;
+    --md-error: #ba1a1a;
+    --md-error-container: #ffdad6;
+    --md-on-error-container: #410002;
+    --md-elev-1: 0 1px 2px rgba(0, 0, 0, .3), 0 1px 3px 1px rgba(0, 0, 0, .15);
+    --md-elev-2: 0 1px 2px rgba(0, 0, 0, .3), 0 2px 6px 2px rgba(0, 0, 0, .15);
+    --md-elev-3: 0 4px 8px 3px rgba(0, 0, 0, .15), 0 1px 3px rgba(0, 0, 0, .3);
+    font-family: Roboto, system-ui, -apple-system, "Segoe UI", sans-serif;
+    color: var(--md-on-surface);
+    background: var(--md-surface);
+}
+
+body { background: var(--md-surface); color: var(--md-on-surface); letter-spacing: .01em; }
+a { color: var(--md-primary); }
+
+/* Horní lišta (top app bar) */
+.topbar { background: var(--md-surface-container); color: var(--md-on-surface); box-shadow: var(--md-elev-1); position: sticky; top: 0; z-index: 20; }
+.topbar-inner { padding: 8px 0; min-height: 64px; }
+.brand { color: var(--md-on-surface); font-size: 1.25rem; font-weight: 500; letter-spacing: 0; }
+.who small { color: var(--md-on-surface-variant); }
+
+/* Hlavička stránky */
+.site-header { background: var(--md-primary-container); color: var(--md-on-primary-container); padding: 32px 0 28px; border-radius: 0 0 28px 28px; }
+.site-header h1 { font-weight: 400; font-size: clamp(1.8rem, 4vw, 2.6rem); }
+.eyebrow { color: var(--md-primary); letter-spacing: .1em; font-weight: 500; }
+.site-header a, .back-link { color: var(--md-on-primary-container); }
+.landing-hero { background: var(--md-primary); border-radius: 0 0 40px 40px; }
+.landing-hero .eyebrow { color: var(--md-primary-container); }
+
+/* Karty */
+.card, .tile { border: 0; border-radius: 16px; background: #fff; box-shadow: var(--md-elev-1); }
+.card h2 { font-weight: 500; font-size: 1.3rem; }
+.tile { transition: box-shadow .2s, transform .2s; }
+.tile:hover { transform: none; box-shadow: var(--md-elev-3); border-color: transparent; }
+.tile strong { color: var(--md-on-surface); font-weight: 500; }
+.tile span:last-child { color: var(--md-on-surface-variant); }
+.tile-icon { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--md-secondary-container); font-size: 1.8rem; }
+
+/* Tlačítka */
+.button { position: relative; overflow: hidden; display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 40px; padding: 10px 24px; border-radius: 20px; background: var(--md-primary); color: var(--md-on-primary); font-weight: 500; letter-spacing: .02em; text-decoration: none; box-shadow: none; transition: box-shadow .2s, background-color .2s; }
+.button:hover { background: var(--md-primary); box-shadow: var(--md-elev-1); filter: brightness(1.08); }
+.button:focus-visible { outline: 3px solid var(--md-primary-container); outline-offset: 2px; }
+.button.secondary { border: 1px solid var(--md-outline); background: transparent; color: var(--md-primary); }
+.button.secondary:hover { background: rgba(74, 103, 65, .08); box-shadow: none; filter: none; }
+.button.danger { background: var(--md-error); color: #fff; }
+.button.small { min-height: 32px; padding: 6px 16px; border-radius: 16px; font-size: .85rem; }
+.button.big { min-height: 48px; border-radius: 24px; padding: 12px 32px; }
+.button.disabled { background: rgba(24, 29, 25, .12); color: rgba(24, 29, 25, .38); box-shadow: none; }
+.button .ripple { position: absolute; border-radius: 50%; background: currentColor; opacity: .25; transform: scale(0); animation: md-ripple .6s ease-out; pointer-events: none; }
+@keyframes md-ripple { to { transform: scale(4); opacity: 0; } }
+
+/* Pole formulářů (outlined text field) */
+label { font-weight: 500; font-size: .85rem; color: var(--md-on-surface-variant); }
+input, textarea, select { border: 1px solid var(--md-outline); border-radius: 8px; background: #fff; color: var(--md-on-surface); padding: 12px 14px; font: inherit; font-weight: 400; transition: border-color .15s, box-shadow .15s; }
+select { width: 100%; }
+input:hover, textarea:hover, select:hover { border-color: var(--md-on-surface); }
+input:focus, textarea:focus, select:focus { outline: none; border-color: var(--md-primary); box-shadow: 0 0 0 1px var(--md-primary); }
+input[type="checkbox"], input[type="radio"] { accent-color: var(--md-primary); width: 18px; height: 18px; padding: 0; box-shadow: none; }
+.check { color: var(--md-on-surface); font-weight: 400; }
+.required { color: var(--md-error); }
+
+/* Zprávy (snackbar-like banner) */
+.message { border-radius: 12px; padding: 14px 16px; }
+.success { background: var(--md-secondary-container); color: var(--md-on-secondary-container); }
+.error { background: var(--md-error-container); color: var(--md-on-error-container); }
+.muted { color: var(--md-on-surface-variant); }
+
+/* Záložky */
+.tabs { display: flex; gap: 0; border-bottom: 1px solid var(--md-outline-variant); margin-bottom: 20px; overflow-x: auto; }
+.tabs a, .tabs button { padding: 14px 20px; border: 0; border-bottom: 3px solid transparent; border-radius: 0; background: none; color: var(--md-on-surface-variant); font-weight: 500; text-decoration: none; white-space: nowrap; }
+.tabs a:hover { background: rgba(74, 103, 65, .08); }
+.tabs a.active, .tabs a[aria-current], .tabs .active { color: var(--md-primary); border-bottom-color: var(--md-primary); background: none; }
+
+/* Tabulky a seznamy */
+.doc-table th { background: var(--md-surface-container); font-weight: 500; }
+.doc-table th, .doc-table td { border-color: var(--md-outline-variant); }
+.meeting-list li + li { border-color: var(--md-outline-variant); }
+.meeting-list a:hover { background: rgba(74, 103, 65, .06); }
+.plan-event, .plan-holiday, .plan-break { border-radius: 12px; }
+
+/* Rozpis schůzek */
+.tt-day { border-radius: 16px; background: var(--md-surface-container); border-color: transparent; }
+.tt-card { border-radius: 12px; box-shadow: var(--md-elev-1); border-color: transparent; }
+.tt-card.editable:hover { box-shadow: var(--md-elev-2); }
+
+/* Dialog */
+#sch-dialog { border-radius: 28px; padding: 24px; box-shadow: var(--md-elev-3); background: var(--md-surface); }
+#sch-dialog::backdrop { background: rgba(0, 0, 0, .32); }
+.dialog-actions .button { border-radius: 20px; }
+
+.footer { color: var(--md-on-surface-variant); }
+
+@media (max-width: 600px) {
+    .site-header { border-radius: 0 0 20px 20px; }
+    .topbar-inner { flex-wrap: wrap; }
+}
+
+@media print {
+    .topbar { position: static; box-shadow: none; }
+    .card, .tile, .tt-card { box-shadow: none; }
+}
+
+/* Ikony Material Symbols */
+.material-symbols-outlined { font-family: "Material Symbols Outlined"; font-weight: 400; font-style: normal; font-size: 20px; line-height: 1; letter-spacing: normal; text-transform: none; display: inline-block; white-space: nowrap; word-wrap: normal; direction: ltr; vertical-align: middle; -webkit-font-feature-settings: "liga"; font-feature-settings: "liga"; -webkit-font-smoothing: antialiased; user-select: none; }
+.card h2 .material-symbols-outlined { margin-right: 6px; color: var(--md-primary); font-size: 26px; }
+.tile-icon .material-symbols-outlined { font-size: 32px; color: var(--md-on-secondary-container); }
+.brand .material-symbols-outlined { font-size: 28px; color: var(--md-primary); margin-right: 4px; }
+.back-link { display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
+.landing-hero h1 .material-symbols-outlined { font-size: 1em; }
+.rte-bar button .material-symbols-outlined, .agenda-row button .material-symbols-outlined, .event-remove .material-symbols-outlined, .collapse-toggle .material-symbols-outlined { font-size: 18px; }
+.button .material-symbols-outlined { font-size: 18px; }
+.plan-holiday .material-symbols-outlined, .plan-break .material-symbols-outlined { color: var(--md-primary); font-size: 20px; margin-right: 4px; }
+
+.topbar .button.secondary { border-color: var(--md-outline); background: transparent; color: var(--md-primary); }
+.topbar .button.secondary:hover { background: rgba(74, 103, 65, .08); }
+.topbar .who, .topbar .who small, .topbar .brand { color: var(--md-on-surface); }

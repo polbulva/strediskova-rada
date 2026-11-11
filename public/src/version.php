@@ -1,11 +1,18 @@
 <?php
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '1.5.0',
+            'date' => '2026-11-11',
+            'changes' => [
+                'Nový vzhled podle Google Material Design 3: ikony Material Symbols, horní lišta, karty, zaoblená tlačítka s efektem, pole formulářů, záložky a dialogy, písmo Roboto.',
+            ],
+        ],
         [
             'version' => '1.4.0',
             'date' => '2026-11-11',

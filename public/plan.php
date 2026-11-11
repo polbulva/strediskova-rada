@@ -139,7 +139,7 @@ renderHeader('Plán akcí', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
+        <p class="eyebrow"><a class="back-link" href="portal.php"><?= icon('arrow_back') ?> Rozcestník</a></p>
         <h1>Plán akcí, svátky a prázdniny</h1>
         <p>Rok <?= h($season) ?> (září – srpen). Akce z plánu se nabízejí jako chystané akce v zápisech a akce přidané v zápisu se objeví tady.</p>
     </div>
@@ -170,7 +170,7 @@ renderHeader('Plán akcí', $currentUser);
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <input type="hidden" name="action" value="sync_calendar">
                     <input type="hidden" name="season" value="<?= h($season) ?>">
-                    <button class="button secondary" type="submit">🔄 Synchronizovat s kalendářem</button>
+                    <button class="button secondary" type="submit"><?= icon('sync') ?> Synchronizovat s kalendářem</button>
                     <span class="muted">Odešle akce roku <?= h($season) ?> do Google Kalendáře<?= planCalendarUrl() !== "" ? " a načte z něj nové akce" : "" ?>.</span>
                 </form>
             <?php endif; ?>
@@ -254,11 +254,11 @@ renderHeader('Plán akcí', $currentUser);
                                 <?php endif; ?>
                             </li>
                         <?php elseif ($entry['kind'] === 'holiday'): ?>
-                            <li class="plan-holiday"><span class="plan-date"><?= h(formatDate($entry['date'])) ?></span><div>🇨🇿 <?= h($entry['label']) ?> <span class="muted">(státní svátek)</span></div></li>
+                            <li class="plan-holiday"><span class="plan-date"><?= h(formatDate($entry['date'])) ?></span><div><?= icon('flag') ?> <?= h($entry['label']) ?> <span class="muted">(státní svátek)</span></div></li>
                         <?php else: ?>
                             <li class="plan-break">
                                 <span class="plan-date"><?= h(formatDate($entry['from_real'])) ?><?= $entry['to'] !== $entry['from_real'] ? ' – ' . h(formatDate($entry['to'])) : '' ?></span>
-                                <div>🏫 <?= h($entry['label']) ?> <span class="muted">(školní prázdniny)</span></div>
+                                <div><?= icon('school') ?> <?= h($entry['label']) ?> <span class="muted">(školní prázdniny)</span></div>
                                 <?php if ($canEdit): ?>
                                     <span class="plan-actions">
                                         <form method="post" onsubmit="return confirm('Smazat tyto prázdniny?');">

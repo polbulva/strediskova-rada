@@ -237,16 +237,16 @@ function renderItemRow(string $index, array $item, ?array $tripContext = null, ?
 
     return '<div class="item-row" data-level="' . $level . '">'
         . '<div class="item-head">'
-        . '<button type="button" class="collapse-toggle" data-action="toggle" title="Sbalit / rozbalit podbody">▾<span class="collapse-count"></span></button>'
+        . '<button type="button" class="collapse-toggle" data-action="toggle" title="Sbalit / rozbalit podbody">' . icon('expand_more') . '<span class="collapse-count"></span></button>'
         . '<input type="hidden" data-field="level" value="' . $level . '">'
         . '<input type="hidden" data-field="type" value="' . h(itemTypeOrEmpty($item['item_type'] ?? '')) . '">'
         . '<input type="text" data-field="title" name="items[' . h($index) . '][title]" maxlength="255" placeholder="Název bodu" value="' . h($item['title'] ?? '') . '">'
         . '<div class="item-actions">'
-        . '<button type="button" data-action="up" title="Posunout nahoru (i s podbody)">↑</button>'
-        . '<button type="button" data-action="down" title="Posunout dolů (i s podbody)">↓</button>'
-        . '<button type="button" data-action="outdent" title="Zrušit odsazení (bod)">⇤</button>'
-        . '<button type="button" data-action="indent" title="Odsadit (podbod)">⇥</button>'
-        . '<button type="button" data-action="remove" title="Odebrat">✕</button>'
+        . '<button type="button" data-action="up" title="Posunout nahoru (i s podbody)">' . icon('arrow_upward') . '</button>'
+        . '<button type="button" data-action="down" title="Posunout dolů (i s podbody)">' . icon('arrow_downward') . '</button>'
+        . '<button type="button" data-action="outdent" title="Zrušit odsazení (bod)">' . icon('format_indent_decrease') . '</button>'
+        . '<button type="button" data-action="indent" title="Odsadit (podbod)">' . icon('format_indent_increase') . '</button>'
+        . '<button type="button" data-action="remove" title="Odebrat">' . icon('close') . '</button>'
         . '</div></div>'
         . renderRichEditor($item['notes'] ?? '')
         . ($tripContext ? '<div class="item-trips"><strong>Výpravy</strong>' . renderTripsEditor($tripContext['trips'], $tripContext['units'], $tripContext['groups']) . '</div>' : '')
@@ -266,7 +266,7 @@ function renderResolutionRow(string $index, array $resolution): string
         . '<label>Pro <input type="number" min="0" data-field="for" name="resolutions[' . h($index) . '][for]" value="' . $field('for') . '"></label>'
         . '<label>Proti <input type="number" min="0" data-field="against" name="resolutions[' . h($index) . '][against]" value="' . $field('against') . '"></label>'
         . '<label>Zdržel se <input type="number" min="0" data-field="abstain" name="resolutions[' . h($index) . '][abstain]" value="' . $field('abstain') . '"></label>'
-        . '<button type="button" data-action="remove" title="Odebrat">✕</button>'
+        . '<button type="button" data-action="remove" title="Odebrat">' . icon('close') . '</button>'
         . '</div></div>';
 }
 

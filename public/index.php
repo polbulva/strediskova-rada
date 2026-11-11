@@ -34,7 +34,7 @@ renderHeader('Přihlášení', null, 'landing');
     <section class="landing-hero">
         <div class="container">
             <p class="eyebrow">Skautské středisko</p>
-            <h1>⚜ Středisková rada</h1>
+            <h1><?= icon('camping') ?> Středisková rada</h1>
             <p class="lead">Interní nástroje střediska na jednom místě. Přihlaste se svým účtem skautIS.</p>
         </div>
     </section>

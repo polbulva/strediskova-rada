@@ -83,7 +83,7 @@ function renderTripRow(string $index, array $trip, array $units, array $groups):
         . '<label>Kam <input type="text" ' . $name('destination') . ' maxlength="255" value="' . $v('destination') . '"></label>'
         . '<label>Kdo vede <input type="text" ' . $name('leader') . ' maxlength="255" value="' . $v('leader') . '"></label>'
         . '</div>'
-        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat výpravu">✕</button>'
+        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat výpravu">' . icon('close') . '</button>'
         . '</div>';
 }
 

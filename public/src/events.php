@@ -247,7 +247,7 @@ function renderEventRow(string $index, array $event): string
         . '<label>Garant <input type="text" data-field="patron" name="events[' . h($index) . '][patron]" maxlength="255" value="' . $v('patron') . '"></label>'
         . '</div>'
         . '<div class="event-summary"><span>Shrnutí</span>' . renderRichEditor((string) ($event['notes'] ?? ''), 'notes', 'events[' . $index . '][notes]') . '</div>'
-        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">✕</button>'
+        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">' . icon('close') . '</button>'
         . '</div>';
 }
 
@@ -266,7 +266,7 @@ function renderPastEventRow(string $index, array $event): string
         . '<label>Garant <input type="text" ' . $name('patron') . ' maxlength="255" value="' . $v('patron') . '"></label>'
         . '</div>'
         . '<div class="event-summary"><span>Shrnutí / vyhodnocení</span>' . renderRichEditor((string) ($event['evaluation'] ?? ''), 'evaluation', 'past[' . $index . '][evaluation]') . '</div>'
-        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">✕</button>'
+        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">' . icon('close') . '</button>'
         . '</div>';
 }
 
