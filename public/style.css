@@ -302,3 +302,6 @@ select { width: 100%; padding: 10px 12px; border: 1px solid #c8d4c9; border-radi
 .plan-actions { display: flex; gap: 0.4rem; }
 .plan-holiday, .plan-break { color: #555; }
 .plan-break { background: #f4f9ee; }
+
+.event-picker { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid #d8e2dc; }
+.event-picker label { flex: 1 1 280px; }

@@ -65,6 +65,8 @@ function parseEventRows(mixed $input): array
             'name' => mb_substr(trim((string) ($row['name'] ?? '')), 0, 255),
             'event_date' => trim((string) ($row['date'] ?? '')),
             'event_time' => trim((string) ($row['time'] ?? '')),
+            'end_date' => trim((string) ($row['end_date'] ?? '')),
+            'end_time' => trim((string) ($row['end_time'] ?? '')),
             'patron' => mb_substr(trim((string) ($row['patron'] ?? '')), 0, 255),
             'notes' => sanitizeNotesHtml((string) ($row['notes'] ?? '')),
         ];
@@ -77,6 +79,30 @@ function parseEventRows(mixed $input): array
 }
 
 function validateEventRows(array $rows): ?string
+{
+    return validateEventTimes($rows) ?? validateEventEnds($rows);
+}
+
+function validateEventEnds(array $rows): ?string
+{
+    foreach ($rows as $event) {
+        $start = (string) $event['event_date'];
+        $endDate = (string) ($event['end_date'] ?? '');
+        $endTime = (string) ($event['end_time'] ?? '');
+        if ($endDate !== '' && (!isValidDate($endDate) || $endDate < $start)) {
+            return 'U akce „' . $event['name'] . '“ zkontrolujte datum konce.';
+        }
+        if ($endTime !== '' && !isValidTime($endTime)) {
+            return 'U akce „' . $event['name'] . '“ zkontrolujte čas konce.';
+        }
+        if (($endDate === '' || $endDate === $start) && $endTime !== '' && $event['event_time'] !== '' && $endTime <= $event['event_time']) {
+            return 'U akce „' . $event['name'] . '“ musí být konec později než začátek.';
+        }
+    }
+    return null;
+}
+
+function validateEventTimes(array $rows): ?string
 {
     foreach ($rows as $event) {
         if ($event['name'] === '') {
@@ -186,15 +212,17 @@ function saveMeetingEvents(PDO $pdo, int $meetingId, array $upcoming, array $pas
             'name' => $event['name'],
             'date' => $event['event_date'],
             'time' => $event['event_time'] ?: null,
+            'end_date' => ($event['end_date'] ?? '') ?: null,
+            'end_time' => ($event['end_time'] ?? '') ?: null,
             'patron' => $event['patron'],
             'notes' => $event['notes'] ?: null,
         ];
         $id = $event['id'];
         if ($id) {
-            $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, patron = :patron, notes = :notes WHERE id = :id')
+            $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, end_date = :end_date, end_time = :end_time, patron = :patron, notes = :notes WHERE id = :id')
                 ->execute($params + ['id' => $id]);
         } else {
-            $pdo->prepare('INSERT INTO events (name, event_date, event_time, patron, notes) VALUES (:name, :date, :time, :patron, :notes)')
+            $pdo->prepare('INSERT INTO events (name, event_date, event_time, end_date, end_time, patron, notes) VALUES (:name, :date, :time, :end_date, :end_time, :patron, :notes)')
                 ->execute($params);
             $id = (int) $pdo->lastInsertId();
         }
@@ -233,6 +261,19 @@ function eventTime(array $event): string
     return $event['event_time'] ? substr($event['event_time'], 0, 5) : '';
 }
 
+/** Termín akce včetně nepovinného konce (např. „1. 5. 2027 8:00 – 3. 5. 2027 16:00“). */
+function eventWhen(array $event, bool $withV = false, bool $times = true): string
+{
+    $startTime = $times ? eventTime($event) : '';
+    $endTime = $times && !empty($event['end_time']) ? substr((string) $event['end_time'], 0, 5) : '';
+    $endDate = !empty($event['end_date']) && $event['end_date'] !== $event['event_date'] ? formatDate($event['end_date']) : '';
+    $text = formatDate($event['event_date']) . ($startTime !== '' ? ($withV ? ' v ' : ' ') . $startTime : '');
+    if ($endDate !== '' || $endTime !== '') {
+        $text .= ' – ' . trim($endDate . ' ' . $endTime);
+    }
+    return $text;
+}
+
 function renderEventRow(string $index, array $event): string
 {
     $v = static fn (string $key): string => h((string) ($event[$key] ?? ''));
@@ -244,6 +285,8 @@ function renderEventRow(string $index, array $event): string
         . '<label>Název akce <input type="text" data-field="name" name="events[' . h($index) . '][name]" maxlength="255" value="' . $v('name') . '"></label>'
         . '<label>Termín <input type="date" data-field="date" name="events[' . h($index) . '][date]" value="' . $v('event_date') . '"></label>'
         . '<label>Čas (nepovinně) <input type="time" data-field="time" name="events[' . h($index) . '][time]" value="' . $time . '"></label>'
+        . '<label>Konec (nepovinně) <input type="date" data-field="end_date" name="events[' . h($index) . '][end_date]" value="' . $v('end_date') . '"></label>'
+        . '<label>Čas konce (nepovinně) <input type="time" data-field="end_time" name="events[' . h($index) . '][end_time]" value="' . (!empty($event['end_time']) ? h(substr((string) $event['end_time'], 0, 5)) : '') . '"></label>'
         . '<label>Garant <input type="text" data-field="patron" name="events[' . h($index) . '][patron]" maxlength="255" value="' . $v('patron') . '"></label>'
         . '</div>'
         . '<div class="event-summary"><span>Shrnutí</span>' . renderRichEditor((string) ($event['notes'] ?? ''), 'notes', 'events[' . $index . '][notes]') . '</div>'
@@ -281,15 +324,35 @@ function renderPastEventsEditor(array $events): string
         . '<button class="button secondary" type="button" data-add="past">+ Přidat proběhlou akci</button></div>';
 }
 
-function renderUpcomingEventsEditor(array $events, array $loadedIds): string
+/** Budoucí akce z plánu (od data zápisu), které ještě nejsou v seznamu chystaných akcí. */
+function loadPickableEvents(PDO $pdo, string $date, array $excludeIds): array
+{
+    $statement = $pdo->prepare('SELECT * FROM events WHERE event_date >= :d ORDER BY event_date, event_time, name');
+    $statement->execute(['d' => $date]);
+    $exclude = array_flip(array_map('intval', $excludeIds));
+    return array_values(array_filter($statement->fetchAll(), static fn (array $e): bool => !isset($exclude[(int) $e['id']])));
+}
+
+function renderUpcomingEventsEditor(array $events, array $loadedIds, array $pickable = []): string
 {
     $rows = '';
     foreach (array_values($events) as $index => $event) {
         $rows .= renderEventRow((string) $index, $event);
     }
+    $picker = '';
+    if ($pickable) {
+        $options = '<option value="">– vyberte akci z plánu –</option>';
+        $templates = '';
+        foreach ($pickable as $event) {
+            $options .= '<option value="' . (int) $event['id'] . '">' . h(formatDate($event['event_date']) . ' – ' . $event['name']) . '</option>';
+            $templates .= '<template data-pick-template="' . (int) $event['id'] . '">' . renderEventRow('__INDEX__', $event) . '</template>';
+        }
+        $picker = '<div class="event-picker"><label>Přidat akci z plánu <select data-pick-select>' . $options . '</select></label>'
+            . '<button class="button secondary" type="button" data-pick-add>+ Vložit vybranou akci</button>' . $templates . '</div>';
+    }
     return '<div class="events-editor"><input type="hidden" name="events_loaded" value="' . h(implode(',', $loadedIds)) . '">'
         . '<div id="events" data-name="events">' . $rows . '</div>'
-        . '<button class="button secondary" type="button" data-add="events">+ Přidat chystanou akci</button></div>';
+        . '<button class="button secondary" type="button" data-add="events">+ Přidat novou chystanou akci</button>' . $picker . '</div>';
 }
 function renderEventBlocks(array $events, string $summaryField, string $empty): string
 {
@@ -298,7 +361,7 @@ function renderEventBlocks(array $events, string $summaryField, string $empty): 
     }
     $html = '';
     foreach ($events as $event) {
-        $when = formatDate($event['event_date']) . (eventTime($event) !== '' ? ' v ' . eventTime($event) : '');
+        $when = eventWhen($event, true);
         $html .= '<div class="doc-event"><p class="doc-event-head"><strong>' . h($event['name']) . '</strong> – ' . h($when)
             . ($event['patron'] !== '' ? ' · garant: ' . h($event['patron']) : '') . '</p>'
             . renderNotes((string) ($event[$summaryField] ?? '')) . '</div>';

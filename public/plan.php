@@ -132,7 +132,7 @@ if ($pdo) {
 }
 
 $timeline = $databaseError ? [] : buildPlanTimeline($season, $events, $breaks);
-$formEvent = $formEvent ?? ['id' => '', 'name' => '', 'event_date' => '', 'event_time' => '', 'patron' => '', 'notes' => ''];
+$formEvent = $formEvent ?? ['id' => '', 'name' => '', 'event_date' => '', 'event_time' => '', 'end_date' => '', 'end_time' => '', 'patron' => '', 'notes' => ''];
 $value = static fn (string $key): string => h((string) ($formEvent[$key] ?? ''));
 
 renderHeader('Plán akcí', $currentUser);
@@ -205,6 +205,12 @@ renderHeader('Plán akcí', $currentUser);
                         <label>Čas (nepovinně)
                             <input type="time" name="events[0][time]" value="<?= h(substr((string) ($formEvent['event_time'] ?? ''), 0, 5)) ?>">
                         </label>
+                        <label>Konec (nepovinně)
+                            <input type="date" name="events[0][end_date]" value="<?= $value('end_date') ?>">
+                        </label>
+                        <label>Čas konce (nepovinně)
+                            <input type="time" name="events[0][end_time]" value="<?= h(substr((string) ($formEvent['end_time'] ?? ''), 0, 5)) ?>">
+                        </label>
                         <label>Garant
                             <input type="text" name="events[0][patron]" maxlength="255" value="<?= $value('patron') ?>">
                         </label>
@@ -234,7 +240,7 @@ renderHeader('Plán akcí', $currentUser);
                     <?php foreach ($entries as $entry): ?>
                         <?php if ($entry['kind'] === 'event'): $event = $entry['event']; ?>
                             <li class="plan-event">
-                                <span class="plan-date"><?= h(formatDate($event['event_date'])) ?><?= eventTime($event) !== '' ? ' ' . h(eventTime($event)) : '' ?></span>
+                                <span class="plan-date"><?= h(eventWhen($event)) ?></span>
                                 <div>
                                     <strong><?= h($event['name']) ?></strong><?= $event['patron'] !== '' ? ' · garant: ' . h($event['patron']) : '' ?>
                                     <div class="plan-notes"><?= renderNotes((string) $event['notes']) ?></div>
