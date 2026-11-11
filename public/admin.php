@@ -256,6 +256,7 @@ renderHeader('Administrace', $currentUser);
         <form method="post" class="admin-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <input type="hidden" name="action" value="lookups">
+            <?php $parentLabels = ['unit' => 'Oddíl', 'clubroom' => 'Klubovna']; ?>
             <?php foreach (lookupTypes() as $type => $typeLabel): ?>
                 <section class="card lookup-card">
                     <h2><?= h($typeLabel) ?></h2>
@@ -264,7 +265,7 @@ renderHeader('Administrace', $currentUser);
                         <?php foreach ($lookupData[$type] ?? [] as $row): ?>
                             <div class="lookup-row">
                                 <input type="text" maxlength="100" name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][label]" value="<?= h($row['label']) ?>">
-                                <?php if ($type === 'group'): ?><select name="lookups[group][<?= (int) $row['id'] ?>][parent]" title="Oddíl"><option value="">– oddíl –</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"<?= (int) $row['parent_id'] === (int) $unit['id'] ? ' selected' : '' ?>><?= h($unit['label']) ?></option><?php endforeach; ?></select><?php endif; ?>
+                                <?php if ($parentType = lookupParentTypes()[$type] ?? null): ?><select name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][parent]" title="<?= h($parentLabels[$parentType]) ?>"><option value="">– <?= h(mb_strtolower($parentLabels[$parentType])) ?> –</option><?php foreach ($lookupData[$parentType] ?? [] as $parent): ?><option value="<?= (int) $parent['id'] ?>"<?= (int) $row['parent_id'] === (int) $parent['id'] ? ' selected' : '' ?>><?= h($parent['label']) ?></option><?php endforeach; ?></select><?php endif; ?>
                                 <button type="button" data-lookup-move="-1" title="Nahoru">▲</button>
                                 <button type="button" data-lookup-move="1" title="Dolů">▼</button>
                                 <label class="check"><input type="checkbox" name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][delete]" value="1"> Smazat</label>
@@ -274,7 +275,7 @@ renderHeader('Administrace', $currentUser);
                     <label>Přidat novou položku
                         <input type="text" maxlength="100" name="new[<?= h($type) ?>][]" placeholder="Nový název">
                     </label>
-                    <?php if ($type === 'group'): ?><label>Oddíl nové družiny <select name="newparent[group][]"><option value="">–</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"><?= h($unit['label']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
+                    <?php if ($parentType = lookupParentTypes()[$type] ?? null): ?><label><?= h($parentLabels[$parentType]) ?> nové položky <select name="newparent[<?= h($type) ?>][]"><option value="">–</option><?php foreach ($lookupData[$parentType] ?? [] as $parent): ?><option value="<?= (int) $parent['id'] ?>"><?= h($parent['label']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
                 </section>
             <?php endforeach; ?>
             <button class="button" type="submit">Uložit číselníky</button>

@@ -144,6 +144,29 @@
     });
     form.elements.time_to.addEventListener('input', function () { autoEnd = false; });
 
+    var groupRooms = JSON.parse(dialog.dataset.groupRooms || '{}');
+    var datalist = document.getElementById('group-names');
+    function filterGroups() {
+        var room = form.elements.clubroom_id.value;
+        datalist.innerHTML = '';
+        Object.keys(groupRooms).forEach(function (name) {
+            var groupRoom = String(groupRooms[name]);
+            if (!room || groupRoom === '0' || groupRoom === room) {
+                var option = document.createElement('option');
+                option.value = name;
+                datalist.appendChild(option);
+            }
+        });
+    }
+    form.elements.clubroom_id.addEventListener('change', filterGroups);
+    form.elements.group_name.addEventListener('change', function () {
+        var room = groupRooms[form.elements.group_name.value];
+        if (room && !form.elements.clubroom_id.value) {
+            form.elements.clubroom_id.value = room;
+            filterGroups();
+        }
+    });
+
     function open(data, title) {
         autoEnd = !data.id && !!data.time_to;
         form.reset();
@@ -151,6 +174,7 @@
             var value = data[name];
             form.elements[name].value = value === null || value === undefined ? '' : value;
         });
+        filterGroups();
         document.getElementById('sch-title').textContent = title;
         document.getElementById('sch-delete').hidden = !data.id;
         if (typeof dialog.showModal === 'function') {
@@ -271,6 +295,37 @@
             }
         });
     });
+})();
+
+(function () {
+    function filterTripGroups(row) {
+        var unit = row.querySelector('[data-field="unit_id"]');
+        var group = row.querySelector('[data-field="group_id"]');
+        if (!unit || !group) { return; }
+        Array.prototype.forEach.call(group.options, function (option) {
+            var match = !unit.value || !option.dataset.unit || option.dataset.unit === '0' || option.dataset.unit === unit.value;
+            option.hidden = !match;
+            option.disabled = !match;
+        });
+        if (group.selectedOptions[0] && group.selectedOptions[0].disabled) {
+            group.value = '';
+        }
+    }
+    document.addEventListener('change', function (event) {
+        if (event.target.matches && event.target.matches('.trip-row [data-field="unit_id"]')) {
+            filterTripGroups(event.target.closest('.trip-row'));
+        }
+    });
+    document.querySelectorAll('.trip-row').forEach(filterTripGroups);
+    new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+            mutation.addedNodes.forEach(function (node) {
+                if (node.nodeType === 1) {
+                    (node.matches('.trip-row') ? [node] : node.querySelectorAll('.trip-row')).forEach(filterTripGroups);
+                }
+            });
+        });
+    }).observe(document.body, {childList: true, subtree: true});
 })();
 
 (() => {

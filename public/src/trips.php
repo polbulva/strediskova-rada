@@ -68,7 +68,7 @@ function renderTripRow(string $index, array $trip, array $units, array $groups):
                     }
                 }
             }
-            $html .= '<option value="' . (int) $row['id'] . '"' . ((string) $selected === (string) $row['id'] ? ' selected' : '') . '>'
+            $html .= '<option value="' . (int) $row['id'] . '"' . ($withParent ? ' data-unit="' . (int) $row['parent_id'] . '"' : '') . ((string) $selected === (string) $row['id'] ? ' selected' : '') . '>'
                 . h($row['label'] . $parent) . '</option>';
         }
         return $html;

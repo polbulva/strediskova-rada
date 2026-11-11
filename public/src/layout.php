@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/version.php';
+
 function renderHeader(string $title, ?array $user = null, string $bodyClass = ''): void
 {
     ?>
@@ -40,7 +42,7 @@ function renderFlash(): void
 function renderFooter(): void
 {
     ?>
-<footer class="container footer">Středisková rada</footer>
+<footer class="container footer">Středisková rada · <a href="release-notes.php" title="Novinky v aplikaci">verze <?= h(APP_VERSION) ?></a></footer>
 <script src="app.js"></script>
 </body>
 </html>
