@@ -11,6 +11,10 @@ function releaseNotes(): array
             'date' => '2026-11-12',
             'changes' => [
                 'Plán akcí lze stáhnout jako PDF (tlačítko Stáhnout PDF).',
+                'Plán akcí: synchronizace s Google Kalendářem (adresa iCal se nastavuje v Administraci → Připojení; skript 013_plan_kalendar.sql).',
+                'Plán akcí: přepínač zobrazení poznámek k akcím (platí i pro PDF).',
+                'Plán akcí: export PDF jen s termíny a názvy a export za kalendářní rok.',
+                'Přidány jarní prázdniny 2027 pro okres Uherské Hradiště (skript 012_jarni_prazdniny_uherske_hradiste.sql).',
                 'Státní svátky ČR jsou pevně dané zákonem (č. 245/2000 Sb.) a dopočítávají se automaticky včetně Velkého pátku a Velikonočního pondělí – není třeba je zadávat ani aktualizovat.',
             ],
         ],

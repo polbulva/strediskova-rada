@@ -82,6 +82,25 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Nastavení se nepodařilo uložit. Zkontrolujte, že je databáze aktualizována (tabulka app_settings).';
             }
         }
+    } elseif (($_POST['action'] ?? '') === 'plan_calendar') {
+        $url = trim((string) ($_POST['plan_ics_url'] ?? ''));
+        try {
+            if ($url !== '') {
+                if (!preg_match('~^https://\S+$~i', $url)) {
+                    throw new RuntimeException('Adresa kalendáře musí začínat https://.');
+                }
+                if (stripos(calendarHttpGet($url), 'BEGIN:VCALENDAR') === false) {
+                    throw new RuntimeException('Adresa nevrací kalendář ve formátu iCal.');
+                }
+            }
+            savePlanCalendarUrl($pdo, $url);
+            flash($url === '' ? 'Kalendář plánu akcí byl odpojen.' : 'Kalendář plánu akcí byl uložen.', 'success');
+            redirect('admin.php?tab=connections');
+        } catch (RuntimeException $exception) {
+            $errors[] = 'Kalendář plánu akcí nebyl uložen: ' . $exception->getMessage();
+        } catch (Throwable $exception) {
+            $errors[] = 'Nastavení se nepodařilo uložit. Zkontrolujte, že je databáze aktualizována (tabulka app_settings).';
+        }
     } elseif (($_POST['action'] ?? '') === 'agenda') {
         try {
             saveAgendaTemplate($pdo, (array) ($_POST['agenda'] ?? []), (array) ($_POST['agenda_new'] ?? []));
@@ -162,7 +181,7 @@ if ($pdo) {
     }
 }
 
-$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda'];
+$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'plan_calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda'];
 $tab = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($tabByAction[$_POST['action'] ?? ''] ?? 'permissions')
     : (in_array($_GET['tab'] ?? '', ['permissions', 'lookups', 'agenda', 'connections'], true) ? $_GET['tab'] : 'permissions');
@@ -246,6 +265,21 @@ renderHeader('Administrace', $currentUser);
                 </label>
                 <label>Filtr názvu události (volitelné)
                     <input type="text" name="calendar_filter" value="<?= h($cal['calendar_filter']) ?>" placeholder="např. rada">
+                </label>
+                <button class="button" type="submit">Uložit a ověřit kalendář</button>
+            </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($pdo && $tab === 'connections'): ?>
+        <section class="card">
+            <h2>🗓️ Google Kalendář plánu akcí</h2>
+            <p class="muted">Tajná adresa iCal kalendáře, ze kterého se na stránce Plán akcí načítají akce tlačítkem „Synchronizovat s kalendářem“. Může jít o jiný kalendář než u střediskových rad. Adresa se před uložením ověří. Prázdné pole kalendář odpojí.</p>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="action" value="plan_calendar">
+                <label>Adresa iCal
+                    <input type="url" name="plan_ics_url" value="<?= h(planCalendarUrl()) ?>" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
                 </label>
                 <button class="button" type="submit">Uložit a ověřit kalendář</button>
             </form>

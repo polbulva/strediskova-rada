@@ -8,7 +8,10 @@ require __DIR__ . '/src/pdf.php';
 $currentUser = requireModule('plan');
 
 $season = (string) ($_GET['season'] ?? '');
-if (!isValidSeason($season)) {
+$year = (string) ($_GET['year'] ?? '');
+if (preg_match('~^20\d{2}$~', $year)) {
+    $season = $year;
+} elseif (!isValidSeason($season)) {
     $season = seasonFor(date('Y-m-d'));
 }
 
@@ -20,11 +23,26 @@ try {
     exit('Plán se nepodařilo načíst.');
 }
 
+$simple = isset($_GET['simple']);
+$withNotes = ($_GET['notes'] ?? '1') !== '0';
 ob_start();
 $logo = logoPath();
 ?>
 <?php if ($logo): ?><img class="doc-logo" src="<?= h($logo) ?>" alt=""><?php endif; ?>
 <h2 class="doc-title">Plán akcí <?= h($season) ?></h2>
+<?php if ($simple): ?>
+<table class="doc-table">
+    <thead><tr><th style="width: 30%">Termín</th><th>Akce</th></tr></thead>
+    <tbody>
+    <?php foreach ($timeline as $entries): foreach ($entries as $entry): if ($entry['kind'] !== 'event') { continue; } $event = $entry['event']; ?>
+        <tr>
+            <td><?= h(formatDate($event['event_date'])) ?></td>
+            <td><?= h($event['name']) ?></td>
+        </tr>
+    <?php endforeach; endforeach; ?>
+    </tbody>
+</table>
+<?php streamPdf(ob_get_clean(), 'plan_akci_strucny_' . str_replace('/', '_', $season) . '.pdf', isset($_GET['inline'])); return; endif; ?>
 <p class="muted">Akce, státní svátky a školní prázdniny (září – srpen)</p>
 <?php if (!$timeline): ?><p class="muted">V tomto roce zatím nejsou žádné akce.</p><?php endif; ?>
 <?php foreach ($timeline as $month => $entries): ?>
@@ -36,7 +54,7 @@ $logo = logoPath();
             <?php if ($entry['kind'] === 'event'): $event = $entry['event']; ?>
                 <tr>
                     <td><?= h(formatDate($event['event_date'])) ?><?= eventTime($event) !== '' ? ' ' . h(eventTime($event)) : '' ?></td>
-                    <td><strong><?= h($event['name']) ?></strong><?= renderNotes((string) $event['notes']) ?></td>
+                    <td><strong><?= h($event['name']) ?></strong><?= $withNotes ? renderNotes((string) $event['notes']) : '' ?></td>
                     <td><?= h($event['patron']) ?></td>
                 </tr>
             <?php elseif ($entry['kind'] === 'holiday'): ?>

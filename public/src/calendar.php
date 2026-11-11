@@ -40,6 +40,61 @@ function saveCalendarSettings(PDO $pdo, string $url, string $filter): void
     calendarSettings(true);
 }
 
+function planCalendarUrl(): string
+{
+    try {
+        $statement = databaseConnection()->prepare("SELECT setting_value FROM app_settings WHERE setting_key = 'plan_ics_url'");
+        $statement->execute();
+        return trim((string) $statement->fetchColumn());
+    } catch (Throwable $exception) {
+        return '';
+    }
+}
+
+function savePlanCalendarUrl(PDO $pdo, string $url): void
+{
+    $pdo->prepare(
+        "INSERT INTO app_settings (setting_key, setting_value) VALUES ('plan_ics_url', :v)
+         ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)"
+    )->execute(['v' => $url]);
+}
+
+/**
+ * Načte akce roku z kalendáře plánu akcí (iCal) do tabulky events. Existující akce (podle UID) se aktualizují
+ * jen v názvu, termínu a čase; garant a shrnutí zůstávají. Akce smazané v kalendáři se v plánu nemažou.
+ *
+ * @return array{added: int, updated: int}
+ */
+function syncPlanFromCalendar(PDO $pdo, string $season): array
+{
+    $url = planCalendarUrl();
+    if ($url === '') {
+        throw new RuntimeException('Kalendář plánu akcí není v administraci nastaven.');
+    }
+    [$from, $to] = seasonRange($season);
+    $zone = calendarTimezone();
+    $items = parseIcs(calendarHttpGet($url), new DateTimeImmutable($from . ' 00:00:00', $zone), new DateTimeImmutable($to . ' 23:59:59', $zone));
+
+    $find = $pdo->prepare('SELECT id FROM events WHERE ical_key = :k');
+    $update = $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time WHERE id = :id');
+    $insert = $pdo->prepare('INSERT INTO events (name, event_date, event_time, patron, notes, ical_key) VALUES (:name, :date, :time, \'\', :notes, :k)');
+    $added = $updated = 0;
+    foreach ($items as $item) {
+        $name = mb_substr($item['title'] !== '' ? $item['title'] : 'Akce', 0, 255);
+        $params = ['name' => $name, 'date' => $item['start']->format('Y-m-d'), 'time' => $item['all_day'] ? null : $item['start']->format('H:i:s')];
+        $find->execute(['k' => mb_substr($item['key'], 0, 255)]);
+        $id = $find->fetchColumn();
+        if ($id) {
+            $update->execute($params + ['id' => $id]);
+            $updated++;
+        } else {
+            $insert->execute($params + ['notes' => $item['description'] !== '' ? $item['description'] : null, 'k' => mb_substr($item['key'], 0, 255)]);
+            $added++;
+        }
+    }
+    return ['added' => $added, 'updated' => $updated];
+}
+
 function calendarConfigured(): bool
 {
     return calendarSettings()['calendar_ics_url'] !== '';

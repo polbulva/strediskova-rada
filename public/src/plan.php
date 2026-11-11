@@ -47,6 +47,9 @@ function czechHolidays(int $year): array
 function seasonRange(string $season): array
 {
     $start = (int) substr($season, 0, 4);
+    if (strlen($season) === 4) {
+        return [$start . '-01-01', $start . '-12-31'];
+    }
     return [$start . '-09-01', ($start + 1) . '-08-31'];
 }
 

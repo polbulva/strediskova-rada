@@ -41,6 +41,10 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     redirect('plan.php?season=' . rawurlencode(seasonFor($formEvent['event_date'])));
                 }
                 $errors[] = $error;
+            } elseif ($action === 'sync_calendar') {
+                $result = syncPlanFromCalendar($pdo, $season);
+                flash('Synchronizace hotová: přidáno ' . $result['added'] . ', aktualizováno ' . $result['updated'] . ' akcí.', 'success');
+                redirect($back);
             } elseif ($action === 'delete_event' && ctype_digit((string) ($_POST['id'] ?? ''))) {
                 $pdo->prepare('DELETE FROM events WHERE id = :id')->execute(['id' => (int) $_POST['id']]);
                 flash('Akce byla smazána.', 'success');
@@ -61,6 +65,8 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 flash('Prázdniny byly smazány.', 'success');
                 redirect($back);
             }
+        } catch (RuntimeException $exception) {
+            $errors[] = 'Synchronizace se nezdařila: ' . $exception->getMessage();
         } catch (Throwable $exception) {
             $errors[] = 'Změnu se nepodařilo uložit. Zkontrolujte, že jsou spuštěny všechny skripty z database/migrations.';
         }
@@ -116,7 +122,26 @@ renderHeader('Plán akcí', $currentUser);
                     </select>
                 </label>
                 <noscript><button class="button" type="submit">Zobrazit</button></noscript>
-                <a class="button secondary" href="plan_pdf.php?season=<?= h(rawurlencode($season)) ?>">Stáhnout PDF</a>
+                <label class="check"><input type="checkbox" id="plan-notes-toggle" checked> Zobrazit poznámky k akcím</label>
+                <a class="button secondary" id="plan-pdf-full" href="plan_pdf.php?season=<?= h(rawurlencode($season)) ?>">Stáhnout PDF</a>
+                <a class="button secondary" href="plan_pdf.php?season=<?= h(rawurlencode($season)) ?>&amp;simple=1">PDF: jen termíny a názvy</a>
+            </form>
+            <?php if ($canEdit && planCalendarUrl() !== ''): ?>
+                <form method="post" class="toolbar-inline">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="sync_calendar">
+                    <input type="hidden" name="season" value="<?= h($season) ?>">
+                    <button class="button secondary" type="submit">🔄 Synchronizovat s kalendářem</button>
+                    <span class="muted">Načte akce roku <?= h($season) ?> z Google Kalendáře.</span>
+                </form>
+            <?php endif; ?>
+            <form method="get" action="plan_pdf.php" class="toolbar-inline">
+                <label>Export za kalendářní rok
+                    <input type="number" name="year" min="2000" max="2099" value="<?= (int) date('Y') ?>" style="width: 6rem">
+                </label>
+                <label class="check"><input type="checkbox" name="simple" value="1"> jen termíny a názvy</label>
+                <label class="check"><input type="checkbox" name="notes" value="0"> bez poznámek</label>
+                <button class="button secondary" type="submit">Stáhnout PDF</button>
             </form>
         </section>
 
@@ -160,7 +185,7 @@ renderHeader('Plán akcí', $currentUser);
                                 <span class="plan-date"><?= h(formatDate($event['event_date'])) ?><?= eventTime($event) !== '' ? ' ' . h(eventTime($event)) : '' ?></span>
                                 <div>
                                     <strong><?= h($event['name']) ?></strong><?= $event['patron'] !== '' ? ' · garant: ' . h($event['patron']) : '' ?>
-                                    <?= renderNotes((string) $event['notes']) ?>
+                                    <div class="plan-notes"><?= renderNotes((string) $event['notes']) ?></div>
                                 </div>
                                 <?php if ($canEdit): ?>
                                     <span class="plan-actions">
@@ -218,4 +243,20 @@ renderHeader('Plán akcí', $currentUser);
         <?php endif; ?>
     <?php endif; ?>
 </main>
+<script>
+(function () {
+    var toggle = document.getElementById('plan-notes-toggle');
+    var pdf = document.getElementById('plan-pdf-full');
+    if (!toggle) { return; }
+    var base = pdf.getAttribute('href');
+    function apply() {
+        document.querySelectorAll('.plan-notes').forEach(function (el) { el.hidden = !toggle.checked; });
+        pdf.setAttribute('href', base + (toggle.checked ? '' : '&notes=0'));
+        try { localStorage.setItem('planNotes', toggle.checked ? '1' : '0'); } catch (e) {}
+    }
+    try { toggle.checked = localStorage.getItem('planNotes') !== '0'; } catch (e) {}
+    toggle.addEventListener('change', apply);
+    apply();
+})();
+</script>
 <?php renderFooter(); ?>
