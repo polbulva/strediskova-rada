@@ -11,7 +11,7 @@ function renderHeader(string $title, ?array $user = null, string $bodyClass = ''
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title><?= h($title) ?> – Středisková rada</title>
-    <meta name="theme-color" content="#eaf0e9">
+    <meta name="theme-color" content="<?= str_contains($bodyClass, 'landing') ? '#4a6741' : '#eaf0e9' ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap">

@@ -570,15 +570,28 @@ document.addEventListener('pointerdown', function (event) {
     var toggle = document.querySelector('[data-nav-toggle]');
     var nav = document.getElementById('topbar-nav');
     if (!toggle || !nav) return;
+    var wide = window.matchMedia('(min-width: 1100px)');
+    var stored = null;
+    try { stored = localStorage.getItem('navCollapsed'); } catch (e) {}
+    if (stored === '1') document.body.classList.add('nav-collapsed');
+    function sync() {
+        toggle.setAttribute('aria-expanded', wide.matches ? String(!document.body.classList.contains('nav-collapsed')) : String(nav.classList.contains('open')));
+    }
+    sync();
     toggle.addEventListener('click', function () {
-        var open = nav.classList.toggle('open');
-        toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        if (wide.matches) {
+            var collapsed = document.body.classList.toggle('nav-collapsed');
+            try { localStorage.setItem('navCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+        } else {
+            nav.classList.toggle('open');
+        }
+        sync();
     });
 })();
 document.addEventListener('click', function (event) {
     var nav = document.getElementById('topbar-nav');
     var toggle = document.querySelector('[data-nav-toggle]');
-    if (!nav || !toggle || !nav.classList.contains('open')) return;
+    if (!nav || !toggle || !nav.classList.contains('open') || window.matchMedia('(min-width: 1100px)').matches) return;
     if (!nav.contains(event.target) && !toggle.contains(event.target)) {
         nav.classList.remove('open');
         toggle.setAttribute('aria-expanded', 'false');

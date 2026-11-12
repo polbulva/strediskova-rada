@@ -11,6 +11,13 @@ function releaseNotes(): array
             'date' => '2026-11-11',
             'changes' => [
                 'Nový vzhled podle Google Material Design 3: ikony Material Symbols, horní lišta, karty, zaoblená tlačítka s efektem, pole formulářů, záložky a dialogy, písmo Roboto.',
+                'Přírodnější barevnost, skautské písmo (nadpisy Skaut Bold, text The Mix) a odsazení mezi bloky v celé aplikaci.',
+                'Přehlednější zápis: podbody jsou ve výchozím stavu sbalené, tlačítka uložení zůstávají vidět dole.',
+                'K nadcházejícím akcím v zápisu jde vybrat akci ze seznamu budoucích akcí a zadat nepovinný konec akce (synchronizuje se do kalendáře); poznámky ze zápisu se do kalendáře neposílají.',
+                'Aplikace je omezena na jednotku podle registračního čísla (nastavení unit_number).',
+                'Uživatel s více rolemi ve skautISu si v hlavičce vybere, pod jakou rolí chce aplikaci používat.',
+                'Nové menu: levý panel (na malých obrazovkách rozbalovací), administrace u přihlášeného uživatele, novinky přes číslo verze v patičce.',
+                'Na rozcestníku jsou dlaždice nahoře a nejbližší středisková rada pod nimi, jen se základními údaji.',
             ],
         ],
         [
