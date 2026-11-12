@@ -1,6 +1,6 @@
 @page { margin: 18mm 16mm 18mm 16mm; }
 body { font-family: "SkautFont", "DejaVu Sans", sans-serif; font-size: 10pt; color: #1b1b1b; line-height: 1.4; }
-h2, h3, h4 { margin: 0; }
+h2, h3, h4 { margin: 0; font-family: "SkautHeading", "SkautFont", "DejaVu Sans", sans-serif; }
 .doc-logo { max-height: 22mm; max-width: 60mm; margin: 0 0 8px; }
 .doc-title { font-size: 17pt; color: #184d38; margin: 0 0 10px; }
 .doc-meta { margin: 0 0 6px; }
@@ -39,3 +39,7 @@ a { color: #184d38; text-decoration: none; }
 .rich th, .rich td { border: 1px solid #9fb0a5; padding: 3px 6px; font-size: 9pt; vertical-align: top; }
 .rich th { background: #eef3ee; }
 .rich img { max-width: 100%; }
+
+.doc-event { margin: 0 0 8px; }
+.doc-event-head { margin: 0 0 2px; }
+.plan-break-row td { background: #f4f9ee; }

@@ -65,8 +65,10 @@ function parseEventRows(mixed $input): array
             'name' => mb_substr(trim((string) ($row['name'] ?? '')), 0, 255),
             'event_date' => trim((string) ($row['date'] ?? '')),
             'event_time' => trim((string) ($row['time'] ?? '')),
+            'end_date' => trim((string) ($row['end_date'] ?? '')),
+            'end_time' => trim((string) ($row['end_time'] ?? '')),
             'patron' => mb_substr(trim((string) ($row['patron'] ?? '')), 0, 255),
-            'notes' => trim((string) ($row['notes'] ?? '')),
+            'notes' => sanitizeNotesHtml((string) ($row['notes'] ?? '')),
         ];
         if ($event['name'] !== '' || $event['event_date'] !== '' || $event['event_time'] !== ''
             || $event['patron'] !== '' || $event['notes'] !== '') {
@@ -78,12 +80,36 @@ function parseEventRows(mixed $input): array
 
 function validateEventRows(array $rows): ?string
 {
+    return validateEventTimes($rows) ?? validateEventEnds($rows);
+}
+
+function validateEventEnds(array $rows): ?string
+{
+    foreach ($rows as $event) {
+        $start = (string) $event['event_date'];
+        $endDate = (string) ($event['end_date'] ?? '');
+        $endTime = (string) ($event['end_time'] ?? '');
+        if ($endDate !== '' && (!isValidDate($endDate) || $endDate < $start)) {
+            return 'U akce „' . $event['name'] . '“ zkontrolujte datum konce.';
+        }
+        if ($endTime !== '' && !isValidTime($endTime)) {
+            return 'U akce „' . $event['name'] . '“ zkontrolujte čas konce.';
+        }
+        if (($endDate === '' || $endDate === $start) && $endTime !== '' && $event['event_time'] !== '' && $endTime <= $event['event_time']) {
+            return 'U akce „' . $event['name'] . '“ musí být konec později než začátek.';
+        }
+    }
+    return null;
+}
+
+function validateEventTimes(array $rows): ?string
+{
     foreach ($rows as $event) {
         if ($event['name'] === '') {
-            return 'U každé chystané akce vyplňte název.';
+            return 'U každé chystané akce vyplňte název akce.';
         }
         if (!isValidDate($event['event_date'])) {
-            return 'U akce „' . $event['name'] . '“ zadejte platné datum.';
+            return 'U akce „' . $event['name'] . '“ zadejte platný termín.';
         }
         if ($event['event_time'] !== '' && !isValidTime($event['event_time'])) {
             return 'U akce „' . $event['name'] . '“ zkontrolujte čas.';
@@ -101,13 +127,39 @@ function parsePastRows(mixed $input): array
 {
     $rows = [];
     foreach (is_array($input) ? $input : [] as $row) {
-        if (is_array($row) && ctype_digit((string) ($row['id'] ?? ''))) {
-            $rows[] = ['id' => (int) $row['id'], 'evaluation' => trim((string) ($row['evaluation'] ?? ''))];
+        if (!is_array($row)) {
+            continue;
+        }
+        $event = [
+            'id' => ctype_digit((string) ($row['id'] ?? '')) ? (int) $row['id'] : null,
+            'name' => mb_substr(trim((string) ($row['name'] ?? '')), 0, 255),
+            'event_date' => trim((string) ($row['date'] ?? '')),
+            'event_time' => trim((string) ($row['time'] ?? '')),
+            'patron' => mb_substr(trim((string) ($row['patron'] ?? '')), 0, 255),
+            'evaluation' => sanitizeNotesHtml((string) ($row['evaluation'] ?? '')),
+        ];
+        if ($event['id'] !== null || $event['name'] !== '' || $event['event_date'] !== '' || $event['patron'] !== '' || $event['evaluation'] !== '') {
+            $rows[] = $event;
         }
     }
     return $rows;
 }
 
+function validatePastRows(array $rows): ?string
+{
+    foreach ($rows as $event) {
+        if ($event['name'] === '') {
+            return 'U každé proběhlé akce vyplňte název akce.';
+        }
+        if (!isValidDate($event['event_date'])) {
+            return 'U proběhlé akce „' . $event['name'] . '“ zadejte platný termín.';
+        }
+        if ($event['event_time'] !== '' && !isValidTime($event['event_time'])) {
+            return 'U proběhlé akce „' . $event['name'] . '“ zkontrolujte čas.';
+        }
+    }
+    return null;
+}
 /** Chystané akce k danému datu zápisu. */
 function loadUpcomingEvents(PDO $pdo, string $date): array
 {
@@ -123,7 +175,14 @@ function loadPendingPastEvents(PDO $pdo, string $date): array
         'SELECT * FROM events WHERE event_date < :d AND evaluated_meeting_id IS NULL ORDER BY event_date, event_time'
     );
     $statement->execute(['d' => $date]);
-    return $statement->fetchAll();
+    $events = $statement->fetchAll();
+    foreach ($events as &$event) {
+        if (trim((string) $event['evaluation']) === '') {
+            $event['evaluation'] = $event['notes'];
+        }
+    }
+    unset($event);
+    return $events;
 }
 
 function loadMeetingEvents(PDO $pdo, int $meetingId, string $section): array
@@ -134,22 +193,6 @@ function loadMeetingEvents(PDO $pdo, int $meetingId, string $section): array
     );
     $statement->execute(['m' => $meetingId, 's' => $section]);
     return $statement->fetchAll();
-}
-
-/** Doplní z databáze údaje o akcích podle odeslaných vyhodnocení (po chybě ve formuláři). */
-function hydratePastRows(PDO $pdo, array $posted): array
-{
-    $rows = [];
-    $statement = $pdo->prepare('SELECT * FROM events WHERE id = :id');
-    foreach ($posted as $row) {
-        $statement->execute(['id' => $row['id']]);
-        $event = $statement->fetch();
-        if ($event) {
-            $event['evaluation'] = $row['evaluation'];
-            $rows[] = $event;
-        }
-    }
-    return $rows;
 }
 
 /** Volá se uvnitř transakce ukládání zápisu. */
@@ -169,15 +212,17 @@ function saveMeetingEvents(PDO $pdo, int $meetingId, array $upcoming, array $pas
             'name' => $event['name'],
             'date' => $event['event_date'],
             'time' => $event['event_time'] ?: null,
+            'end_date' => ($event['end_date'] ?? '') ?: null,
+            'end_time' => ($event['end_time'] ?? '') ?: null,
             'patron' => $event['patron'],
             'notes' => $event['notes'] ?: null,
         ];
         $id = $event['id'];
         if ($id) {
-            $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, patron = :patron, notes = :notes WHERE id = :id')
+            $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, end_date = :end_date, end_time = :end_time, patron = :patron, notes = :notes WHERE id = :id')
                 ->execute($params + ['id' => $id]);
         } else {
-            $pdo->prepare('INSERT INTO events (name, event_date, event_time, patron, notes) VALUES (:name, :date, :time, :patron, :notes)')
+            $pdo->prepare('INSERT INTO events (name, event_date, event_time, end_date, end_time, patron, notes) VALUES (:name, :date, :time, :end_date, :end_time, :patron, :notes)')
                 ->execute($params);
             $id = (int) $pdo->lastInsertId();
         }
@@ -189,16 +234,44 @@ function saveMeetingEvents(PDO $pdo, int $meetingId, array $upcoming, array $pas
         $pdo->prepare('DELETE FROM events WHERE id = :id')->execute(['id' => $removed]);
     }
 
-    $evaluate = $pdo->prepare('UPDATE events SET evaluation = :evaluation, evaluated_meeting_id = :m WHERE id = :id');
     foreach ($past as $row) {
-        $evaluate->execute(['evaluation' => $row['evaluation'] ?: null, 'm' => $meetingId, 'id' => $row['id']]);
-        $link->execute(['m' => $meetingId, 'e' => $row['id'], 's' => 'past']);
+        $params = [
+            'name' => $row['name'],
+            'date' => $row['event_date'],
+            'time' => $row['event_time'] ?: null,
+            'patron' => $row['patron'],
+            'evaluation' => $row['evaluation'] ?: null,
+            'm' => $meetingId,
+        ];
+        $id = $row['id'];
+        if ($id) {
+            $pdo->prepare('UPDATE events SET name = :name, event_date = :date, event_time = :time, patron = :patron, evaluation = :evaluation, evaluated_meeting_id = :m WHERE id = :id')
+                ->execute($params + ['id' => $id]);
+        } else {
+            $pdo->prepare('INSERT INTO events (name, event_date, event_time, patron, evaluation, evaluated_meeting_id) VALUES (:name, :date, :time, :patron, :evaluation, :m)')
+                ->execute($params);
+            $id = (int) $pdo->lastInsertId();
+        }
+        $link->execute(['m' => $meetingId, 'e' => $id, 's' => 'past']);
     }
 }
 
 function eventTime(array $event): string
 {
     return $event['event_time'] ? substr($event['event_time'], 0, 5) : '';
+}
+
+/** Termín akce včetně nepovinného konce (např. „1. 5. 2027 8:00 – 3. 5. 2027 16:00“). */
+function eventWhen(array $event, bool $withV = false, bool $times = true): string
+{
+    $startTime = $times ? eventTime($event) : '';
+    $endTime = $times && !empty($event['end_time']) ? substr((string) $event['end_time'], 0, 5) : '';
+    $endDate = !empty($event['end_date']) && $event['end_date'] !== $event['event_date'] ? formatDate($event['end_date']) : '';
+    $text = formatDate($event['event_date']) . ($startTime !== '' ? ($withV ? ' v ' : ' ') . $startTime : '');
+    if ($endDate !== '' || $endTime !== '') {
+        $text .= ' – ' . trim($endDate . ' ' . $endTime);
+    }
+    return $text;
 }
 
 function renderEventRow(string $index, array $event): string
@@ -209,52 +282,99 @@ function renderEventRow(string $index, array $event): string
     return '<div class="event-row">'
         . '<input type="hidden" data-field="id" name="events[' . h($index) . '][id]" value="' . $v('id') . '">'
         . '<div class="event-grid">'
-        . '<label>Název <input type="text" data-field="name" name="events[' . h($index) . '][name]" maxlength="255" value="' . $v('name') . '"></label>'
-        . '<label>Kdy <input type="date" data-field="date" name="events[' . h($index) . '][date]" value="' . $v('event_date') . '"></label>'
-        . '<label>V kolik hodin <input type="time" data-field="time" name="events[' . h($index) . '][time]" value="' . $time . '"></label>'
-        . '<label>Patron akce <input type="text" data-field="patron" name="events[' . h($index) . '][patron]" maxlength="255" value="' . $v('patron') . '"></label>'
+        . '<label>Název akce <input type="text" data-field="name" name="events[' . h($index) . '][name]" maxlength="255" value="' . $v('name') . '"></label>'
+        . '<label>Termín <input type="date" data-field="date" name="events[' . h($index) . '][date]" value="' . $v('event_date') . '"></label>'
+        . '<label>Čas (nepovinně) <input type="time" data-field="time" name="events[' . h($index) . '][time]" value="' . $time . '"></label>'
+        . '<label>Konec (nepovinně) <input type="date" data-field="end_date" name="events[' . h($index) . '][end_date]" value="' . $v('end_date') . '"></label>'
+        . '<label>Čas konce (nepovinně) <input type="time" data-field="end_time" name="events[' . h($index) . '][end_time]" value="' . (!empty($event['end_time']) ? h(substr((string) $event['end_time'], 0, 5)) : '') . '"></label>'
+        . '<label>Garant <input type="text" data-field="patron" name="events[' . h($index) . '][patron]" maxlength="255" value="' . $v('patron') . '"></label>'
         . '</div>'
-        . '<label>Poznámky <textarea data-field="notes" name="events[' . h($index) . '][notes]" rows="2">' . $v('notes') . '</textarea></label>'
-        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">✕</button>'
+        . '<div class="event-summary"><span>Shrnutí</span>' . renderRichEditor((string) ($event['notes'] ?? ''), 'notes', 'events[' . $index . '][notes]') . '</div>'
+        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">' . icon('close') . '</button>'
         . '</div>';
 }
 
-function renderPastEventRow(int $index, array $event): string
+function renderPastEventRow(string $index, array $event): string
 {
-    $when = formatDate($event['event_date']) . (eventTime($event) !== '' ? ' v ' . eventTime($event) : '');
+    $v = static fn (string $key): string => h((string) ($event[$key] ?? ''));
+    $time = !empty($event['event_time']) ? h(substr((string) $event['event_time'], 0, 5)) : '';
+    $name = static fn (string $field): string => 'name="past[' . h($index) . '][' . $field . ']" data-field="' . $field . '"';
+
     return '<div class="event-row past">'
-        . '<input type="hidden" name="past[' . $index . '][id]" value="' . (int) $event['id'] . '">'
-        . '<p><strong>' . h($event['name']) . '</strong> – ' . h($when)
-        . ($event['patron'] !== '' ? ' · patron: ' . h($event['patron']) : '') . '</p>'
-        . ($event['notes'] ? '<p class="muted">' . nl2br(h($event['notes'])) . '</p>' : '')
-        . '<label>Vyhodnocení (zpětná vazba)'
-        . '<textarea name="past[' . $index . '][evaluation]" rows="3">' . h((string) ($event['evaluation'] ?? '')) . '</textarea></label>'
+        . '<input type="hidden" ' . $name('id') . ' value="' . $v('id') . '">'
+        . '<div class="event-grid">'
+        . '<label>Název akce <input type="text" ' . $name('name') . ' maxlength="255" value="' . $v('name') . '"></label>'
+        . '<label>Termín <input type="date" ' . $name('date') . ' value="' . $v('event_date') . '"></label>'
+        . '<label>Čas (nepovinně) <input type="time" ' . $name('time') . ' value="' . $time . '"></label>'
+        . '<label>Garant <input type="text" ' . $name('patron') . ' maxlength="255" value="' . $v('patron') . '"></label>'
+        . '</div>'
+        . '<div class="event-summary"><span>Shrnutí / vyhodnocení</span>' . renderRichEditor((string) ($event['evaluation'] ?? ''), 'evaluation', 'past[' . $index . '][evaluation]') . '</div>'
+        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat akci">' . icon('close') . '</button>'
         . '</div>';
+}
+
+function renderPastEventsEditor(array $events): string
+{
+    $rows = '';
+    foreach (array_values($events) as $index => $event) {
+        $rows .= renderPastEventRow((string) $index, $event);
+    }
+    return '<div class="events-editor"><p class="muted">Akce, které se konaly od minulé rady. Po uložení se v dalších zápisech už nezobrazí.</p>'
+        . '<div id="past" data-name="past">' . $rows . '</div>'
+        . '<button class="button secondary" type="button" data-add="past">+ Přidat proběhlou akci</button></div>';
+}
+
+/** Budoucí akce z plánu (od data zápisu), které ještě nejsou v seznamu chystaných akcí. */
+function loadPickableEvents(PDO $pdo, string $date, array $excludeIds): array
+{
+    $statement = $pdo->prepare('SELECT * FROM events WHERE event_date >= :d ORDER BY event_date, event_time, name');
+    $statement->execute(['d' => $date]);
+    $exclude = array_flip(array_map('intval', $excludeIds));
+    return array_values(array_filter($statement->fetchAll(), static fn (array $e): bool => !isset($exclude[(int) $e['id']])));
+}
+
+function renderUpcomingEventsEditor(array $events, array $loadedIds, array $pickable = []): string
+{
+    $rows = '';
+    foreach (array_values($events) as $index => $event) {
+        $rows .= renderEventRow((string) $index, $event);
+    }
+    $picker = '';
+    if ($pickable) {
+        $options = '<option value="">– vyberte akci z plánu –</option>';
+        $templates = '';
+        foreach ($pickable as $event) {
+            $options .= '<option value="' . (int) $event['id'] . '">' . h(formatDate($event['event_date']) . ' – ' . $event['name']) . '</option>';
+            $templates .= '<template data-pick-template="' . (int) $event['id'] . '">' . renderEventRow('__INDEX__', $event) . '</template>';
+        }
+        $picker = '<div class="event-picker"><label>Přidat akci z plánu <select data-pick-select>' . $options . '</select></label>'
+            . '<button class="button secondary" type="button" data-pick-add>+ Vložit vybranou akci</button>' . $templates . '</div>';
+    }
+    return '<div class="events-editor"><input type="hidden" name="events_loaded" value="' . h(implode(',', $loadedIds)) . '">'
+        . '<div id="events" data-name="events">' . $rows . '</div>'
+        . '<button class="button secondary" type="button" data-add="events">+ Přidat novou chystanou akci</button>' . $picker . '</div>';
+}
+function renderEventBlocks(array $events, string $summaryField, string $empty): string
+{
+    if (!$events) {
+        return '<p class="muted">' . h($empty) . '</p>';
+    }
+    $html = '';
+    foreach ($events as $event) {
+        $when = eventWhen($event, true);
+        $html .= '<div class="doc-event"><p class="doc-event-head"><strong>' . h($event['name']) . '</strong> – ' . h($when)
+            . ($event['patron'] !== '' ? ' · garant: ' . h($event['patron']) : '') . '</p>'
+            . renderNotes((string) ($event[$summaryField] ?? '')) . '</div>';
+    }
+    return $html;
 }
 
 function renderUpcomingEventsTable(array $events): string
 {
-    if (!$events) {
-        return '<p class="muted">Žádné chystané akce.</p>';
-    }
-    $html = '<table class="doc-table"><thead><tr><th>Název</th><th>Kdy</th><th>V kolik hodin</th><th>Patron akce</th><th>Poznámky</th></tr></thead><tbody>';
-    foreach ($events as $event) {
-        $html .= '<tr><td>' . h($event['name']) . '</td><td>' . h(formatDate($event['event_date'])) . '</td><td>'
-            . h(eventTime($event)) . '</td><td>' . h($event['patron']) . '</td><td>' . nl2br(h((string) $event['notes'])) . '</td></tr>';
-    }
-    return $html . '</tbody></table>';
+    return renderEventBlocks($events, 'notes', 'Žádné chystané akce.');
 }
 
 function renderPastEventsTable(array $events): string
 {
-    if (!$events) {
-        return '<p class="muted">Žádné proběhlé akce k vyhodnocení.</p>';
-    }
-    $html = '<table class="doc-table"><thead><tr><th>Název</th><th>Kdy</th><th>Patron akce</th><th>Vyhodnocení (zpětná vazba)</th></tr></thead><tbody>';
-    foreach ($events as $event) {
-        $when = formatDate($event['event_date']) . (eventTime($event) !== '' ? ' ' . eventTime($event) : '');
-        $html .= '<tr><td>' . h($event['name']) . '</td><td>' . h($when) . '</td><td>' . h($event['patron'])
-            . '</td><td>' . nl2br(h((string) $event['evaluation'])) . '</td></tr>';
-    }
-    return $html . '</tbody></table>';
+    return renderEventBlocks($events, 'evaluation', 'Žádné proběhlé akce k vyhodnocení.');
 }

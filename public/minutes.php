@@ -4,6 +4,7 @@ require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/lib.php';
 
 $currentUser = requireModule('minutes');
+$canEditMinutes = canAccess($currentUser, 'minutes_edit');
 
 $fields = [
     'meeting_number', 'meeting_date', 'time_from', 'time_to', 'place', 'attendees', 'online_attendees',
@@ -39,6 +40,11 @@ try {
 }
 
 $tokenValid = static fn (): bool => csrfValid();
+
+if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST' && !$canEditMinutes) {
+    http_response_code(403);
+    exit('K úpravě zápisů nemáte oprávnění.');
+}
 
 if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
     if (($_POST['action'] ?? '') === 'delete') {
@@ -84,7 +90,7 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if ($eventError = validateEventRows($upcomingEvents)) {
+        if ($eventError = validateEventRows($upcomingEvents) ?? validatePastRows($postedPast)) {
             $errors[] = $eventError;
         }
 
@@ -103,14 +109,10 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
-$wantForm = $isPost || isset($_GET['new']) || isset($_GET['edit']) || isset($_GET['event']) || isset($_GET['from']);
+$wantForm = $canEditMinutes && ($isPost || isset($_GET['new']) || isset($_GET['edit']) || isset($_GET['event']) || isset($_GET['from']));
 
-if ($isPost && $pdo && isset($postedPast)) {
-    try {
-        $pastEvents = hydratePastRows($pdo, $postedPast);
-    } catch (Throwable $exception) {
-        $pastEvents = [];
-    }
+if ($isPost && isset($postedPast)) {
+    $pastEvents = $postedPast;
 }
 
 if ($pdo && !$databaseError) {
@@ -262,9 +264,9 @@ renderHeader('Zápisy z rady', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Zápisy z rady</h1>
-        <p>Vytvořte, uložte a vytiskněte zápis z rady.</p>
+        <p><?= $canEditMinutes ? 'Vytvořte, uložte a vytiskněte zápis z rady.' : 'Zápisy z rad ke čtení a stažení do PDF.' ?></p>
     </div>
 </header>
 
@@ -287,16 +289,18 @@ renderHeader('Zápisy z rady', $currentUser);
         ?>
         <article class="card minutes">
             <div class="minutes-toolbar">
-                <a class="button secondary" href="minutes.php">← Zpět</a>
-                <a class="button secondary" href="minutes.php?edit=<?= (int) $meeting['id'] ?>">Upravit</a>
+                <a class="button secondary" href="minutes.php"><?= icon('arrow_back') ?> Zpět</a>
+                <?php if ($canEditMinutes): ?><a class="button secondary" href="minutes.php?edit=<?= (int) $meeting['id'] ?>">Upravit</a><?php endif; ?>
                 <button class="button secondary" type="button" onclick="window.print()">Tisknout</button>
                 <a class="button secondary" href="minutes_pdf.php?id=<?= (int) $meeting['id'] ?>">Stáhnout PDF</a>
+                <?php if ($canEditMinutes): ?>
                 <form method="post" onsubmit="return confirm('Opravdu smazat tento zápis?');">
                     <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                     <input type="hidden" name="action" value="delete">
                     <input type="hidden" name="id" value="<?= (int) $meeting['id'] ?>">
                     <button class="button danger" type="submit">Smazat</button>
                 </form>
+                <?php endif; ?>
             </div>
 
             <?php require __DIR__ . '/src/minutes_document.php'; ?>
@@ -331,7 +335,7 @@ renderHeader('Zápisy z rady', $currentUser);
                     <input type="hidden" name="id" value="<?= $editId ? (int) $editId : '' ?>">
                     <input type="hidden" name="calendar_event_key" value="<?= h($values['calendar_event_key']) ?>">
                     <?php if ($values['calendar_event_key'] !== ''): ?>
-                        <p class="muted">📅 Zápis je navázán na událost v kalendáři.</p>
+                        <p class="muted"><?= icon('event') ?> Zápis je navázán na událost v kalendáři.</p>
                     <?php endif; ?>
                     <p class="muted">Rozpis schůzek družin se do zápisu doplní automaticky podle sezóny. <?php if (canAccess($currentUser, 'schedule_edit')): ?><a href="schedule.php">Upravit rozpis</a><?php endif; ?></p>
                     <div class="form-grid">
@@ -382,11 +386,18 @@ renderHeader('Zápisy z rady', $currentUser);
                     $ttSeason = seasonFor($values['meeting_date'] ?: date('Y-m-d'));
                     $canEditSchedule = $pdo && canAccess($currentUser, 'schedule_edit');
                     $timetableHtml = renderSeasonTimetables($ttSeason, false, (bool) $canEditSchedule);
+                    $pastHost = $upcomingHost = null;
+                    foreach (array_values($items) as $index => $item) {
+                        if (($item['item_type'] ?? '') === 'past' && $pastHost === null) { $pastHost = $index; }
+                        if (($item['item_type'] ?? '') === 'upcoming' && $upcomingHost === null) { $upcomingHost = $index; }
+                    }
+                    $pastHtml = renderPastEventsEditor($pastEvents);
+                    $upcomingHtml = renderUpcomingEventsEditor($upcomingEvents, $loadedEventIds, loadPickableEvents($pdo, $values['meeting_date'] ?: date('Y-m-d'), array_column($upcomingEvents, 'id')));
                     $tripContext = ['trips' => $trips, 'units' => $tripUnits, 'groups' => $tripGroups];
                     ?>
                     <div id="items" data-name="items">
                         <?php foreach (array_values($items) as $index => $item): ?>
-                            <?= renderItemRow((string) $index, $item, $index === $tripHost ? $tripContext : null, $index === $timetableHost ? $timetableHtml : null) ?>
+                            <?= renderItemRow((string) $index, $item, $index === $tripHost ? $tripContext : null, $index === $timetableHost ? $timetableHtml : null, $index === $pastHost ? $pastHtml : ($index === $upcomingHost ? $upcomingHtml : '')) ?>
                         <?php endforeach; ?>
                     </div>
                     <button class="button secondary" type="button" data-add="items">+ Přidat bod</button>
@@ -401,22 +412,14 @@ renderHeader('Zápisy z rady', $currentUser);
                         <h3>Výpravy</h3>
                         <?= renderTripsEditor($trips, $tripUnits, $tripGroups) ?>
                     <?php endif; ?>
-                    <h3>Proběhlé akce – vyhodnocení</h3>
-                    <p class="muted">Akce, které se konaly od minulé rady. Po uložení se v dalších zápisech už nezobrazí.</p>
-                    <?php foreach (array_values($pastEvents) as $index => $pastEvent): ?>
-                        <?= renderPastEventRow($index, $pastEvent) ?>
-                    <?php endforeach; ?>
-                    <?php if (!$pastEvents): ?><p class="muted">Žádné proběhlé akce k vyhodnocení.</p><?php endif; ?>
-
-                    <h3>Nejbližší chystané akce</h3>
-                    <input type="hidden" name="events_loaded" value="<?= h(implode(',', $loadedEventIds)) ?>">
-                    <div id="events" data-name="events">
-                        <?php foreach (array_values($upcomingEvents) as $index => $upcomingEvent): ?>
-                            <?= renderEventRow((string) $index, $upcomingEvent) ?>
-                        <?php endforeach; ?>
-                    </div>
-                    <button class="button secondary" type="button" data-add="events">+ Přidat akci</button>
-
+                    <?php if ($pastHost === null): ?>
+                        <h3>Proběhlé akce – vyhodnocení</h3>
+                        <?= $pastHtml ?>
+                    <?php endif; ?>
+                    <?php if ($upcomingHost === null): ?>
+                        <h3>Nejbližší chystané akce</h3>
+                        <?= $upcomingHtml ?>
+                    <?php endif; ?>
                     <h3>Usnesení</h3>
                     <div id="resolutions" data-name="resolutions">
                         <?php foreach (array_values($resolutions) as $index => $resolution): ?>
@@ -451,10 +454,12 @@ renderHeader('Zápisy z rady', $currentUser);
                     </div>
                     </div>
 
-                    <button class="button" type="submit">Uložit zápis</button>
-                    <?php if ($editId): ?>
-                        <a class="button secondary" href="minutes.php?id=<?= (int) $editId ?>">Zrušit</a>
-                    <?php endif; ?>
+                    <div class="form-actions">
+                        <button class="button" type="submit">Uložit zápis</button>
+                        <?php if ($editId): ?>
+                            <a class="button secondary" href="minutes.php?id=<?= (int) $editId ?>">Zrušit</a>
+                        <?php endif; ?>
+                    </div>
                 </form>
 
                 <?php if ($canEditSchedule): ?>
@@ -468,6 +473,7 @@ renderHeader('Zápisy z rady', $currentUser);
                 <?php endif; ?>
                 <template id="items-template"><?= renderItemRow('__INDEX__', ['level' => 1]) ?></template>
                 <template id="trips-template"><?= renderTripRow('__INDEX__', [], $tripUnits, $tripGroups) ?></template>
+                <template id="past-template"><?= renderPastEventRow('__INDEX__', []) ?></template>
                 <template id="events-template"><?= renderEventRow('__INDEX__', []) ?></template>
                 <template id="resolutions-template"><?= renderResolutionRow('__INDEX__', []) ?></template>
             </section>
@@ -476,7 +482,7 @@ renderHeader('Zápisy z rady', $currentUser);
         <?php if (!$showForm): ?>
         <aside class="card recent-card">
             <h2>Zápisy</h2>
-            <p><a class="button" href="minutes.php?new=1">＋ Nový zápis bez události</a></p>
+            <?php if ($canEditMinutes): ?><p><a class="button" href="minutes.php?new=1">＋ Nový zápis bez události</a></p><?php endif; ?>
 
             <?php if (calendarConfigured()): ?>
                 <h3>Rady z kalendáře</h3>
@@ -486,10 +492,11 @@ renderHeader('Zápisy z rady', $currentUser);
                     <ul class="meeting-list">
                         <?php foreach (array_reverse($calendarEvents) as $calendarEvent): ?>
                             <?php $linkedId = $linkedKeys[$calendarEvent['key']] ?? null; ?>
+                            <?php if (!$linkedId && !$canEditMinutes) { continue; } ?>
                             <li>
                                 <a href="minutes.php?<?= $linkedId ? 'id=' . (int) $linkedId : 'event=' . rawurlencode($calendarEvent['key']) ?>">
                                     <strong><?= h(formatDate($calendarEvent['start']->format('Y-m-d'))) ?><?= $calendarEvent['all_day'] ? '' : ' ' . h($calendarEvent['start']->format('G:i')) ?> – <?= h($calendarEvent['title']) ?></strong>
-                                    <span><?= $linkedId ? '✔ Zápis existuje' : '＋ Vytvořit zápis' ?></span>
+                                    <span><?= $linkedId ? icon('check_circle') . ' Zápis existuje' : icon('add') . ' Vytvořit zápis' ?></span>
                                 </a>
                             </li>
                         <?php endforeach; ?>

@@ -54,7 +54,7 @@ $chapters = count(array_filter($numbered, static fn (array $item): bool => (int)
                             <?= renderUpcomingEventsTable($meeting['events_upcoming']) ?>
                         <?php endif; ?>
                     <?php endif; ?>
-                    <?php if ($item['carry_over']): ?><p class="carry-tag">↻ Řešit na další radě</p><?php endif; ?>
+                    
                 </section>
             <?php endforeach; ?>
 

@@ -154,23 +154,23 @@ function renderNotes(?string $notes): string
     return $inner !== '' && isRichNotes($notes) ? '<div class="rich">' . $inner . '</div>' : $inner;
 }
 
-function renderRichEditor(?string $notes): string
+function renderRichEditor(?string $notes, string $field = 'notes', string $name = ''): string
 {
     $buttons = [
-        ['bold', 'B', 'Tučně'], ['italic', 'I', 'Kurzíva'], ['underline', 'U', 'Podtržení'],
-        ['ul', '•', 'Odrážky'], ['ol', '1.', 'Číslovaný seznam'], ['outdent', '⇤', 'Předsadit'], ['indent', '⇥', 'Odsadit (podbod)'],
-        ['link', '🔗', 'Odkaz'], ['table', '▦', 'Vložit tabulku'], ['image', '🖼', 'Vložit obrázek'],
+        ['bold', 'format_bold', 'Tučně'], ['italic', 'format_italic', 'Kurzíva'], ['underline', 'format_underlined', 'Podtržení'],
+        ['ul', 'format_list_bulleted', 'Odrážky'], ['ol', 'format_list_numbered', 'Číslovaný seznam'], ['outdent', 'format_indent_decrease', 'Předsádit'], ['indent', 'format_indent_increase', 'Odsadit (podbod)'],
+        ['link', 'link', 'Odkaz'], ['table', 'table_chart', 'Vložit tabulku'], ['image', 'image', 'Vložit obrázek'],
         ['row+', '+ř', 'Přidat řádek tabulky'], ['col+', '+s', 'Přidat sloupec tabulky'],
         ['row-', '−ř', 'Smazat řádek tabulky'], ['col-', '−s', 'Smazat sloupec tabulky'],
-        ['clear', '✕', 'Vymazat formátování'],
+        ['clear', 'format_clear', 'Vymazat formátování'],
     ];
     $bar = '';
     foreach ($buttons as [$command, $label, $title]) {
-        $bar .= '<button type="button" data-rte-cmd="' . $command . '" title="' . h($title) . '">' . h($label) . '</button>';
+        $bar .= '<button type="button" data-rte-cmd="' . $command . '" title="' . h($title) . '">' . (preg_match('~^[a-z_]+$~', $label) ? icon($label) : h($label)) . '</button>';
     }
 
     return '<div class="rte" data-rte><div class="rte-bar">' . $bar . '</div>'
         . '<div class="rte-area" contenteditable="true" data-placeholder="Poznámky – lze použít odrážky, tabulky i obrázky">' . notesInnerHtml($notes) . '</div>'
-        . '<input type="hidden" data-field="notes" value="' . h((string) $notes) . '">'
+        . '<input type="hidden" data-field="' . h($field) . '"' . ($name !== '' ? ' name="' . h($name) . '"' : '') . ' value="' . h((string) $notes) . '">'
         . '<input type="file" accept="image/*" hidden data-rte-file></div>';
 }

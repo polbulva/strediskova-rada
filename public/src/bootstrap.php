@@ -233,3 +233,9 @@ startSession();
 require __DIR__ . '/skautis.php';
 require __DIR__ . '/auth.php';
 require __DIR__ . '/layout.php';
+
+/** Ikona Material Symbols (písmo z Google Fonts); název podle https://fonts.google.com/icons. */
+function icon(string $name): string
+{
+    return '<span class="material-symbols-outlined" aria-hidden="true">' . htmlspecialchars($name, ENT_QUOTES, 'UTF-8') . '</span>';
+}

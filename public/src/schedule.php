@@ -13,6 +13,12 @@ function lookupTypes(): array
     ];
 }
 
+/** Číselníky s nadřazenou položkou: družina patří k oddílu, oddíl k předvolené klubovně. */
+function lookupParentTypes(): array
+{
+    return ['group' => 'unit', 'unit' => 'clubroom'];
+}
+
 function loadLookups(PDO $pdo, string $type): array
 {
     $statement = $pdo->prepare('SELECT id, label, parent_id FROM lookups WHERE type = :type ORDER BY position, id');
@@ -39,13 +45,15 @@ function saveLookups(PDO $pdo, string $type, array $existing, array $new, array 
             $label = mb_substr(trim((string) ($row['label'] ?? '')), 0, 100);
             if (!empty($row['delete']) || $label === '') {
                 $delete->execute(['id' => (int) $id, 'type' => $type]);
-                if ($type === 'unit') {
-                    $pdo->prepare("UPDATE lookups SET parent_id = NULL WHERE type = 'group' AND parent_id = :id")->execute(['id' => (int) $id]);
+                foreach (lookupParentTypes() as $childType => $parentType) {
+                    if ($parentType === $type) {
+                        $pdo->prepare('UPDATE lookups SET parent_id = NULL WHERE type = :child AND parent_id = :id')->execute(['child' => $childType, 'id' => (int) $id]);
+                    }
                 }
                 continue;
             }
-            if ($type === 'group') {
-                $updateGroup->execute(['label' => $label, 'position' => ++$position, 'parent' => lookupIdOrNull($pdo, 'unit', $row['parent'] ?? ''), 'id' => (int) $id, 'type' => $type]);
+            if (isset(lookupParentTypes()[$type])) {
+                $updateGroup->execute(['label' => $label, 'position' => ++$position, 'parent' => lookupIdOrNull($pdo, lookupParentTypes()[$type], $row['parent'] ?? ''), 'id' => (int) $id, 'type' => $type]);
                 continue;
             }
             $update->execute(['label' => $label, 'position' => ++$position, 'id' => (int) $id, 'type' => $type]);
@@ -54,7 +62,7 @@ function saveLookups(PDO $pdo, string $type, array $existing, array $new, array 
         foreach (array_values($new) as $newIndex => $label) {
             $label = mb_substr(trim((string) $label), 0, 100);
             if ($label !== '') {
-                $insert->execute(['type' => $type, 'label' => $label, 'position' => ++$position, 'parent' => $type === 'group' ? lookupIdOrNull($pdo, 'unit', $newParents[$newIndex] ?? '') : null]);
+                $insert->execute(['type' => $type, 'label' => $label, 'position' => ++$position, 'parent' => isset(lookupParentTypes()[$type]) ? lookupIdOrNull($pdo, lookupParentTypes()[$type], $newParents[$newIndex] ?? '') : null]);
             }
         }
         $pdo->commit();
@@ -265,7 +273,19 @@ function renderScheduleDialog(string $season, array $clubrooms, array $categorie
         $days .= '<option value="' . $number . '">' . $name . '</option>';
     }
 
-    return '<dialog id="sch-dialog"><form method="post" id="sch-form">'
+    $roomOfGroup = [];
+    try {
+        $unitRoom = [];
+        foreach (loadLookups(databaseConnection(), 'unit') as $unit) {
+            $unitRoom[(int) $unit['id']] = (int) $unit['parent_id'];
+        }
+        foreach ($groups as $g) {
+            $roomOfGroup[$g['label']] = $unitRoom[(int) $g['parent_id']] ?? 0;
+        }
+    } catch (Throwable $exception) {
+    }
+
+    return '<dialog id="sch-dialog" data-group-rooms="' . h(json_encode($roomOfGroup, JSON_UNESCAPED_UNICODE | JSON_FORCE_OBJECT)) . '"><form method="post" id="sch-form">'
         . '<input type="hidden" name="csrf_token" value="' . h(csrfToken()) . '">'
         . '<input type="hidden" name="season" value="' . h($season) . '">'
         . '<input type="hidden" name="id" value="">'

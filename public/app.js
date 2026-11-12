@@ -71,6 +71,15 @@
 
     document.querySelectorAll('[data-name]').forEach(reindex);
 
+    // Podbody jsou v zápisu při otevření zabalené (rozbalí se šipkou u nadřazeného bodu).
+    var itemsContainer = document.getElementById('items');
+    if (itemsContainer) {
+        Array.prototype.forEach.call(itemsContainer.children, function (row) {
+            if (row.classList.contains('has-subs')) { row.classList.add('collapsed'); }
+        });
+        applyCollapse(itemsContainer);
+    }
+
     document.addEventListener('click', function (event) {
         var add = event.target.closest('[data-add]');
         if (add) {
@@ -144,6 +153,29 @@
     });
     form.elements.time_to.addEventListener('input', function () { autoEnd = false; });
 
+    var groupRooms = JSON.parse(dialog.dataset.groupRooms || '{}');
+    var datalist = document.getElementById('group-names');
+    function filterGroups() {
+        var room = form.elements.clubroom_id.value;
+        datalist.innerHTML = '';
+        Object.keys(groupRooms).forEach(function (name) {
+            var groupRoom = String(groupRooms[name]);
+            if (!room || groupRoom === '0' || groupRoom === room) {
+                var option = document.createElement('option');
+                option.value = name;
+                datalist.appendChild(option);
+            }
+        });
+    }
+    form.elements.clubroom_id.addEventListener('change', filterGroups);
+    form.elements.group_name.addEventListener('change', function () {
+        var room = groupRooms[form.elements.group_name.value];
+        if (room && !form.elements.clubroom_id.value) {
+            form.elements.clubroom_id.value = room;
+            filterGroups();
+        }
+    });
+
     function open(data, title) {
         autoEnd = !data.id && !!data.time_to;
         form.reset();
@@ -151,6 +183,7 @@
             var value = data[name];
             form.elements[name].value = value === null || value === undefined ? '' : value;
         });
+        filterGroups();
         document.getElementById('sch-title').textContent = title;
         document.getElementById('sch-delete').hidden = !data.id;
         if (typeof dialog.showModal === 'function') {
@@ -273,6 +306,37 @@
     });
 })();
 
+(function () {
+    function filterTripGroups(row) {
+        var unit = row.querySelector('[data-field="unit_id"]');
+        var group = row.querySelector('[data-field="group_id"]');
+        if (!unit || !group) { return; }
+        Array.prototype.forEach.call(group.options, function (option) {
+            var match = !unit.value || !option.dataset.unit || option.dataset.unit === '0' || option.dataset.unit === unit.value;
+            option.hidden = !match;
+            option.disabled = !match;
+        });
+        if (group.selectedOptions[0] && group.selectedOptions[0].disabled) {
+            group.value = '';
+        }
+    }
+    document.addEventListener('change', function (event) {
+        if (event.target.matches && event.target.matches('.trip-row [data-field="unit_id"]')) {
+            filterTripGroups(event.target.closest('.trip-row'));
+        }
+    });
+    document.querySelectorAll('.trip-row').forEach(filterTripGroups);
+    new MutationObserver(function (mutations) {
+        mutations.forEach(function (mutation) {
+            mutation.addedNodes.forEach(function (node) {
+                if (node.nodeType === 1) {
+                    (node.matches('.trip-row') ? [node] : node.querySelectorAll('.trip-row')).forEach(filterTripGroups);
+                }
+            });
+        });
+    }).observe(document.body, {childList: true, subtree: true});
+})();
+
 (() => {
     document.querySelectorAll('[data-sign]').forEach((pad) => {
         const canvas = pad.querySelector('canvas');
@@ -340,7 +404,7 @@
         if (editor.dataset.ready) return;
         editor.dataset.ready = '1';
         const area = editor.querySelector('.rte-area');
-        const hidden = editor.querySelector('input[data-field="notes"]');
+        const hidden = editor.querySelector('input[type="hidden"]');
         const file = editor.querySelector('[data-rte-file]');
 
         const sync = () => {
@@ -470,3 +534,74 @@
         });
     }
 })();
+
+// Material ripple na tlačítkách
+document.addEventListener('pointerdown', function (event) {
+    var button = event.target.closest && event.target.closest('.button');
+    if (!button || button.classList.contains('disabled')) { return; }
+    var rect = button.getBoundingClientRect();
+    var size = Math.max(rect.width, rect.height);
+    var ripple = document.createElement('span');
+    ripple.className = 'ripple';
+    ripple.style.width = ripple.style.height = size + 'px';
+    ripple.style.left = (event.clientX - rect.left - size / 2) + 'px';
+    ripple.style.top = (event.clientY - rect.top - size / 2) + 'px';
+    button.appendChild(ripple);
+    setTimeout(function () { ripple.remove(); }, 650);
+});
+(function () {
+    document.addEventListener('click', function (event) {
+        var add = event.target.closest('[data-pick-add]');
+        if (!add) return;
+        var picker = add.closest('.event-picker');
+        var select = picker.querySelector('[data-pick-select]');
+        if (!select.value) { select.focus(); return; }
+        var template = picker.querySelector('[data-pick-template="' + select.value + '"]');
+        var container = document.getElementById('events');
+        if (!template || !container) return;
+        container.insertAdjacentHTML('beforeend', template.innerHTML.replace(/__INDEX__/g, String(container.children.length)));
+        template.remove();
+        select.querySelector('option[value="' + select.value + '"]').remove();
+        select.value = '';
+        container.lastElementChild.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+})();
+(function () {
+    var toggle = document.querySelector('[data-nav-toggle]');
+    var nav = document.getElementById('topbar-nav');
+    if (!toggle || !nav) return;
+    var wide = window.matchMedia('(min-width: 1100px)');
+    var stored = null;
+    try { stored = localStorage.getItem('navCollapsed'); } catch (e) {}
+    if (stored === '1') document.body.classList.add('nav-collapsed');
+    function sync() {
+        toggle.setAttribute('aria-expanded', wide.matches ? String(!document.body.classList.contains('nav-collapsed')) : String(nav.classList.contains('open')));
+    }
+    sync();
+    toggle.addEventListener('click', function () {
+        if (wide.matches) {
+            var collapsed = document.body.classList.toggle('nav-collapsed');
+            try { localStorage.setItem('navCollapsed', collapsed ? '1' : '0'); } catch (e) {}
+        } else {
+            nav.classList.toggle('open');
+        }
+        sync();
+    });
+})();
+document.addEventListener('click', function (event) {
+    var nav = document.getElementById('topbar-nav');
+    var toggle = document.querySelector('[data-nav-toggle]');
+    if (!nav || !toggle || !nav.classList.contains('open') || window.matchMedia('(min-width: 1100px)').matches) return;
+    if (!nav.contains(event.target) && !toggle.contains(event.target)) {
+        nav.classList.remove('open');
+        toggle.setAttribute('aria-expanded', 'false');
+    }
+});
+document.addEventListener('keydown', function (event) {
+    var nav = document.getElementById('topbar-nav');
+    if (event.key === 'Escape' && nav && nav.classList.contains('open')) {
+        nav.classList.remove('open');
+        var toggle = document.querySelector('[data-nav-toggle]');
+        if (toggle) { toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); }
+    }
+});

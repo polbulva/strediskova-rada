@@ -68,7 +68,7 @@ function renderTripRow(string $index, array $trip, array $units, array $groups):
                     }
                 }
             }
-            $html .= '<option value="' . (int) $row['id'] . '"' . ((string) $selected === (string) $row['id'] ? ' selected' : '') . '>'
+            $html .= '<option value="' . (int) $row['id'] . '"' . ($withParent ? ' data-unit="' . (int) $row['parent_id'] . '"' : '') . ((string) $selected === (string) $row['id'] ? ' selected' : '') . '>'
                 . h($row['label'] . $parent) . '</option>';
         }
         return $html;
@@ -83,7 +83,7 @@ function renderTripRow(string $index, array $trip, array $units, array $groups):
         . '<label>Kam <input type="text" ' . $name('destination') . ' maxlength="255" value="' . $v('destination') . '"></label>'
         . '<label>Kdo vede <input type="text" ' . $name('leader') . ' maxlength="255" value="' . $v('leader') . '"></label>'
         . '</div>'
-        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat výpravu">✕</button>'
+        . '<button type="button" class="event-remove" data-action="remove" title="Odebrat výpravu">' . icon('close') . '</button>'
         . '</div>';
 }
 

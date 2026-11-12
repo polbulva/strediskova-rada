@@ -2,6 +2,12 @@
 
 require __DIR__ . '/src/bootstrap.php';
 
+// skautIS vrací přihlášení POSTem na adresu nastavenou u aplikace; pokud je to úvodní stránka, zpracuje ho login.php.
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['skautIS_Token'])) {
+    require __DIR__ . '/login.php';
+    exit;
+}
+
 if (currentUser()) {
     redirect('portal.php');
 }
@@ -28,7 +34,7 @@ renderHeader('Přihlášení', null, 'landing');
     <section class="landing-hero">
         <div class="container">
             <p class="eyebrow">Skautské středisko</p>
-            <h1>⚜ Středisková rada</h1>
+            <h1><?= icon('camping') ?> Středisková rada</h1>
             <p class="lead">Interní nástroje střediska na jednom místě. Přihlaste se svým účtem skautIS.</p>
         </div>
     </section>

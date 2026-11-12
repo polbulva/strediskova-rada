@@ -12,30 +12,53 @@ function appModules(): array
     return [
         'minutes' => [
             'title' => 'Zápisy z rady',
-            'description' => 'Vytváření, úprava a tisk zápisů ze střediskové rady.',
-            'icon' => '📝',
+            'description' => 'Zobrazení zápisů ze střediskové rady a jejich stažení do PDF.',
+            'icon' => '<span class="material-symbols-outlined">description</span>',
             'url' => 'minutes.php',
             'policy' => 'all',
+        ],
+        'minutes_edit' => [
+            'title' => 'Úprava zápisů z rady',
+            'description' => 'Vytváření, úprava a mazání zápisů ze střediskové rady.',
+            'icon' => '<span class="material-symbols-outlined">edit</span>',
+            'url' => 'minutes.php',
+            'policy' => 'roles',
+            'tile' => false,
         ],
         'schedule' => [
             'title' => 'Rozpis schůzek',
             'description' => 'Přehled schůzek družin v klubovnách během sezóny (jen ke čtení).',
-            'icon' => '📅',
+            'icon' => '<span class="material-symbols-outlined">calendar_month</span>',
             'url' => 'schedule.php',
             'policy' => 'all',
         ],
         'schedule_edit' => [
             'title' => 'Úprava rozpisu schůzek',
             'description' => 'Přidávání, úprava, přesun a převzetí schůzek z minulé sezóny.',
-            'icon' => '✏️',
+            'icon' => '<span class="material-symbols-outlined">edit</span>',
             'url' => 'schedule.php',
+            'policy' => 'roles',
+            'tile' => false,
+        ],
+        'plan' => [
+            'title' => 'Plán akcí',
+            'description' => 'Plán akcí na rok (září–srpen), státní svátky a školní prázdniny.',
+            'icon' => '<span class="material-symbols-outlined">event</span>',
+            'url' => 'plan.php',
+            'policy' => 'all',
+        ],
+        'plan_edit' => [
+            'title' => 'Úprava plánu akcí',
+            'description' => 'Přidávání, úprava a mazání akcí a školních prázdnin v plánu.',
+            'icon' => '<span class="material-symbols-outlined">edit</span>',
+            'url' => 'plan.php',
             'policy' => 'roles',
             'tile' => false,
         ],
         'admin' => [
             'title' => 'Administrace',
             'description' => 'Nastavení, které role mají přístup do jednotlivých částí aplikace.',
-            'icon' => '⚙️',
+            'icon' => '<span class="material-symbols-outlined">settings</span>',
             'url' => 'admin.php',
             'policy' => 'roles',
         ],
@@ -69,8 +92,19 @@ function isSuperAdmin(?array $user): bool
     if ($user['type'] === 'demo') {
         return $user['role_key'] === DEMO_ADMIN_ROLE;
     }
-    $admins = array_map('mb_strtolower', array_map('strval', (array) appConfig()['admin_usernames']));
-    return $user['username'] !== '' && in_array(mb_strtolower($user['username']), $admins, true);
+    $admins = array_map('mb_strtolower', array_map('strval', (array) (appConfig()['admin_usernames'] ?? [])));
+    if ($user['username'] !== '' && in_array(mb_strtolower($user['username']), $admins, true)) {
+        return true;
+    }
+
+    // role ze skautISu s plným přístupem (název nebo klíč role, případně „středisko: role“)
+    $adminRoles = array_map(static fn ($role): string => mb_strtolower(trim((string) $role)), (array) (appConfig()['admin_roles'] ?? ['Středisko: vedoucí/admin']));
+    $candidates = array_filter([
+        mb_strtolower(trim((string) ($user['role_name'] ?? ''))),
+        mb_strtolower(trim((string) ($user['role_key'] ?? ''))),
+        mb_strtolower(trim((string) ($user['unit_name'] ?? '') . ': ' . (string) ($user['role_name'] ?? ''))),
+    ], static fn (string $value): bool => $value !== '' && $value !== ':');
+    return (bool) array_intersect($candidates, $adminRoles);
 }
 
 /** @return array{policy: string, roles: string[]} */

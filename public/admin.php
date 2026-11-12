@@ -82,6 +82,34 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Nastavení se nepodařilo uložit. Zkontrolujte, že je databáze aktualizována (tabulka app_settings).';
             }
         }
+    } elseif (($_POST['action'] ?? '') === 'plan_calendar') {
+        $url = trim((string) ($_POST['plan_ics_url'] ?? ''));
+        try {
+            if ($url !== '') {
+                if (!preg_match('~^https://\S+$~i', $url)) {
+                    throw new RuntimeException('Adresa kalendáře musí začínat https://.');
+                }
+                if (stripos(calendarHttpGet($url), 'BEGIN:VCALENDAR') === false) {
+                    throw new RuntimeException('Adresa nevrací kalendář ve formátu iCal.');
+                }
+            }
+            $calendarId = trim((string) ($_POST['plan_calendar_id'] ?? ''));
+            $keyJson = trim((string) ($_POST['plan_sa_json'] ?? ''));
+            if ($keyJson !== '') {
+                googleAccessToken($keyJson);
+            }
+            if ($keyJson !== '' && $calendarId === '') {
+                throw new RuntimeException('Vyplňte také ID kalendáře.');
+            }
+            savePlanGoogleSettings($pdo, $calendarId, $keyJson !== '' ? $keyJson : (isset($_POST['plan_sa_remove']) ? '' : null));
+            savePlanCalendarUrl($pdo, $url);
+            flash($url === '' ? 'Kalendář plánu akcí byl odpojen.' : 'Kalendář plánu akcí byl uložen.', 'success');
+            redirect('admin.php?tab=connections');
+        } catch (RuntimeException $exception) {
+            $errors[] = 'Kalendář plánu akcí nebyl uložen: ' . $exception->getMessage();
+        } catch (Throwable $exception) {
+            $errors[] = 'Nastavení se nepodařilo uložit. Zkontrolujte, že je databáze aktualizována (tabulka app_settings).';
+        }
     } elseif (($_POST['action'] ?? '') === 'agenda') {
         try {
             saveAgendaTemplate($pdo, (array) ($_POST['agenda'] ?? []), (array) ($_POST['agenda_new'] ?? []));
@@ -162,7 +190,7 @@ if ($pdo) {
     }
 }
 
-$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda'];
+$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'plan_calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda'];
 $tab = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($tabByAction[$_POST['action'] ?? ''] ?? 'permissions')
     : (in_array($_GET['tab'] ?? '', ['permissions', 'lookups', 'agenda', 'connections'], true) ? $_GET['tab'] : 'permissions');
@@ -182,7 +210,7 @@ renderHeader('Administrace', $currentUser);
 ?>
 <header class="site-header">
     <div class="container">
-        <p class="eyebrow"><a class="back-link" href="portal.php">← Rozcestník</a></p>
+        <p class="eyebrow">Středisková rada</p>
         <h1>Administrace</h1>
         <p>Určete, které role ze skautISu mají přístup do jednotlivých částí aplikace.</p>
     </div>
@@ -202,7 +230,7 @@ renderHeader('Administrace', $currentUser);
     </nav>
     <?php if ($pdo && $tab === 'connections'): ?>
         <section class="card">
-            <h2>🖼 Logo střediska</h2>
+            <h2><?= icon('image') ?> Logo střediska</h2>
             <p class="muted">Zobrazuje se v hlavičce aplikace a v zápisu (včetně tisku). Formáty PNG, JPEG, GIF, WebP do 2 MB.</p>
             <?php if ($currentLogo = logoUrl()): ?><p><img class="logo-preview" src="<?= h($currentLogo) ?>" alt="Logo"></p><?php endif; ?>
             <form method="post" enctype="multipart/form-data">
@@ -215,8 +243,8 @@ renderHeader('Administrace', $currentUser);
         </section>
         <?php $skautis = appSettings(); ?>
         <section class="card">
-            <h2>🔐 Připojení ke skautISu</h2>
-            <p class="muted">ID aplikace přidělí správce skautISu (skaut.cz → skautIS → Aplikace). Návratová adresa aplikace: <code><?= h(baseUrl() . 'login.php') ?></code>. Stav: <?= skautisConfigured() ? '✔ nastaveno' : '✖ nenastaveno (nebo chybí PHP rozšíření SOAP)' ?>.</p>
+            <h2><?= icon('lock') ?> Připojení ke skautISu</h2>
+            <p class="muted">ID aplikace přidělí správce skautISu (skaut.cz → skautIS → Aplikace). Návratová adresa aplikace: <code><?= h(baseUrl() . 'login.php') ?></code>. Stav: <?= skautisConfigured() ? icon('check_circle') . ' nastaveno' : icon('cancel') . ' nenastaveno (nebo chybí PHP rozšíření SOAP)' ?>.</p>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                 <input type="hidden" name="action" value="skautis">
@@ -236,7 +264,7 @@ renderHeader('Administrace', $currentUser);
     <?php if ($pdo && $tab === 'connections'): ?>
         <?php $cal = calendarSettings(); ?>
         <section class="card">
-            <h2>📅 Google Kalendář střediskových rad</h2>
+            <h2><?= icon('calendar_month') ?> Google Kalendář střediskových rad</h2>
             <p class="muted">Vložte tajnou adresu ve formátu iCal: Google Kalendář → Nastavení kalendáře → Integrace kalendáře → „Tajná adresa ve formátu iCal“. Adresa se před uložením ověří. Prázdné pole kalendář odpojí.</p>
             <form method="post">
                 <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
@@ -252,10 +280,37 @@ renderHeader('Administrace', $currentUser);
         </section>
     <?php endif; ?>
 
+    <?php if ($pdo && $tab === 'connections'): ?>
+        <section class="card">
+            <h2><?= icon('event') ?> Google Kalendář plánu akcí</h2>
+            <p class="muted">Tajná adresa iCal kalendáře, ze kterého se na stránce Plán akcí načítají akce tlačítkem „Synchronizovat s kalendářem“. Může jít o jiný kalendář než u střediskových rad. Adresa se před uložením ověří. Prázdné pole kalendář odpojí.</p>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="action" value="plan_calendar">
+                <label>Adresa iCal
+                    <input type="url" name="plan_ics_url" value="<?= h(planCalendarUrl()) ?>" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+                </label>
+                <h3>Odesílání akcí do kalendáře (volitelné)</h3>
+                <p class="muted">Aby se akce vytvořené v aplikaci objevily v Google Kalendáři, je potřeba servisní účet: v Google Cloud Console vytvořte projekt, zapněte Google Calendar API, vytvořte servisní účet a jeho klíč ve formátu JSON. Kalendář pak sdílejte na e-mail servisního účtu s právem „Provádět změny událostí“.</p>
+                <label>ID kalendáře
+                    <input type="text" name="plan_calendar_id" value="<?= h(planGoogleSettings()['calendar_id']) ?>" placeholder="např. abc123@group.calendar.google.com">
+                </label>
+                <label>Klíč servisního účtu (JSON) <?= planGoogleSettings()['key_json'] !== '' ? '– uložen, vložením nového se přepíše' : '' ?>
+                    <textarea name="plan_sa_json" rows="4" autocomplete="off" placeholder="{ &quot;type&quot;: &quot;service_account&quot;, ... }"></textarea>
+                </label>
+                <?php if (planGoogleSettings()['key_json'] !== ''): ?>
+                    <label class="check"><input type="checkbox" name="plan_sa_remove" value="1"> Odstranit uložený klíč</label>
+                <?php endif; ?>
+                <button class="button" type="submit">Uložit a ověřit kalendář</button>
+            </form>
+        </section>
+    <?php endif; ?>
+
     <?php if ($pdo && $tab === 'lookups'): ?>
         <form method="post" class="admin-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <input type="hidden" name="action" value="lookups">
+            <?php $parentLabels = ['unit' => 'Oddíl', 'clubroom' => 'Klubovna']; ?>
             <?php foreach (lookupTypes() as $type => $typeLabel): ?>
                 <section class="card lookup-card">
                     <h2><?= h($typeLabel) ?></h2>
@@ -264,7 +319,7 @@ renderHeader('Administrace', $currentUser);
                         <?php foreach ($lookupData[$type] ?? [] as $row): ?>
                             <div class="lookup-row">
                                 <input type="text" maxlength="100" name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][label]" value="<?= h($row['label']) ?>">
-                                <?php if ($type === 'group'): ?><select name="lookups[group][<?= (int) $row['id'] ?>][parent]" title="Oddíl"><option value="">– oddíl –</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"<?= (int) $row['parent_id'] === (int) $unit['id'] ? ' selected' : '' ?>><?= h($unit['label']) ?></option><?php endforeach; ?></select><?php endif; ?>
+                                <?php if ($parentType = lookupParentTypes()[$type] ?? null): ?><select name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][parent]" title="<?= h($parentLabels[$parentType]) ?>"><option value="">– <?= h(mb_strtolower($parentLabels[$parentType])) ?> –</option><?php foreach ($lookupData[$parentType] ?? [] as $parent): ?><option value="<?= (int) $parent['id'] ?>"<?= (int) $row['parent_id'] === (int) $parent['id'] ? ' selected' : '' ?>><?= h($parent['label']) ?></option><?php endforeach; ?></select><?php endif; ?>
                                 <button type="button" data-lookup-move="-1" title="Nahoru">▲</button>
                                 <button type="button" data-lookup-move="1" title="Dolů">▼</button>
                                 <label class="check"><input type="checkbox" name="lookups[<?= h($type) ?>][<?= (int) $row['id'] ?>][delete]" value="1"> Smazat</label>
@@ -274,7 +329,7 @@ renderHeader('Administrace', $currentUser);
                     <label>Přidat novou položku
                         <input type="text" maxlength="100" name="new[<?= h($type) ?>][]" placeholder="Nový název">
                     </label>
-                    <?php if ($type === 'group'): ?><label>Oddíl nové družiny <select name="newparent[group][]"><option value="">–</option><?php foreach ($lookupData['unit'] ?? [] as $unit): ?><option value="<?= (int) $unit['id'] ?>"><?= h($unit['label']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
+                    <?php if ($parentType = lookupParentTypes()[$type] ?? null): ?><label><?= h($parentLabels[$parentType]) ?> nové položky <select name="newparent[<?= h($type) ?>][]"><option value="">–</option><?php foreach ($lookupData[$parentType] ?? [] as $parent): ?><option value="<?= (int) $parent['id'] ?>"><?= h($parent['label']) ?></option><?php endforeach; ?></select></label><?php endif; ?>
                 </section>
             <?php endforeach; ?>
             <button class="button" type="submit">Uložit číselníky</button>
@@ -310,14 +365,14 @@ renderHeader('Administrace', $currentUser);
                 $id = isset($row['id']) ? (string) (int) $row['id'] : '__N__';
                 $base = $prefix . '[' . $id . ']';
                 return '<div class="agenda-row' . ($level > 1 ? ' lvl-' . $level : '') . '" data-agenda-row>'
-                    . '<button type="button" class="collapse-toggle" data-agenda-toggle title="Sbalit / rozbalit podbody">▾<span class="collapse-count"></span></button><button type="button" data-agenda-move="-1" title="Nahoru (i s podbody)">↑</button><button type="button" data-agenda-move="1" title="Dolů (i s podbody)">↓</button>'
+                    . '<button type="button" class="collapse-toggle" data-agenda-toggle title="Sbalit / rozbalit podbody">' . icon('expand_more') . '<span class="collapse-count"></span></button><button type="button" data-agenda-move="-1" title="Nahoru (i s podbody)">' . icon('arrow_upward') . '</button><button type="button" data-agenda-move="1" title="Dolů (i s podbody)">' . icon('arrow_downward') . '</button>'
                     . '<input type="hidden" data-level name="' . $base . '[level]" value="' . $level . '">'
-                    . '<button type="button" data-agenda-indent="-1" title="Zrušit odsazení (bod)">⇤</button>'
-                    . '<button type="button" data-agenda-indent="1" title="Odsadit (podbod)">⇥</button>'
+                    . '<button type="button" data-agenda-indent="-1" title="Zrušit odsazení (bod)">' . icon('format_indent_decrease') . '</button>'
+                    . '<button type="button" data-agenda-indent="1" title="Odsadit (podbod)">' . icon('format_indent_increase') . '</button>'
                     . '<input type="text" maxlength="255" name="' . $base . '[title]" value="' . h($row['title'] ?? '') . '" placeholder="Název bodu">'
                     . '<label class="check" title="Obsah se vždy převezme z předchozího zápisu"><input type="checkbox" name="' . $base . '[carry]" value="1"' . (!empty($row['always_carry']) ? ' checked' : '') . '> Přenášet</label>'
                     . $typeSelect($base, (string) ($row['item_type'] ?? ''))
-                    . (isset($row['id']) ? '<label class="check"><input type="checkbox" name="' . $base . '[delete]" value="1"> Smazat</label>' : '<button type="button" data-agenda-remove title="Odebrat">✕</button>')
+                    . (isset($row['id']) ? '<label class="check"><input type="checkbox" name="' . $base . '[delete]" value="1"> Smazat</label>' : '<button type="button" data-agenda-remove title="Odebrat">' . icon('close') . '</button>')
                     . '</div>';
             };
             ?>
