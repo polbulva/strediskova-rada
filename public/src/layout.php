@@ -42,7 +42,7 @@ function renderHeader(string $title, ?array $user = null, string $bodyClass = ''
             <span class="who">
                 <strong><?= h($user['name']) ?></strong>
                 <?php $userRoles = (array) ($user['roles'] ?? []); ?>
-                <?php if (count($userRoles) > 1): ?>
+                <?php if (count($userRoles) >= 1): ?>
                     <form class="role-switch" method="post" action="switch_role.php">
                         <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
                         <input type="hidden" name="return" value="<?= h(basename((string) ($_SERVER['SCRIPT_NAME'] ?? 'portal.php'))) ?>">

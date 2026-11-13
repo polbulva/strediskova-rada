@@ -19,11 +19,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && csrfValid()) {
             'unit_name' => $choice['unit_name'],
             'unit_number' => $choice['unit_number'],
         ]);
-        try {
-            rememberRole(databaseConnection(), $choice['role_key'], $choice['role_name']);
-        } catch (Throwable $exception) {
-            // evidence rolí je jen pomůcka pro administraci
-        }
         // akce dané rolí nemusí být dostupné, proto se vždy vracíme na rozcestník
         $return = 'portal.php';
     }

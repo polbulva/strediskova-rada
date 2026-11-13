@@ -605,3 +605,99 @@ document.addEventListener('keydown', function (event) {
         if (toggle) { toggle.setAttribute('aria-expanded', 'false'); toggle.focus(); }
     }
 });
+(function () {
+    var fields = ['attendees', 'online_attendees', 'absentees'];
+    function splitNames(value) {
+        return value.split(/[,;\n]+/).map(function (part) { return part.trim(); }).filter(Boolean);
+    }
+    function field(name) { return document.querySelector('textarea[name="' + name + '"]'); }
+    function quorumText(present, total) {
+        var ok = present * 2 > total;
+        return { ok: ok, text: 'Přítomno ' + present + ' z ' + total + ' členů rady – ' + (ok ? 'rada je usnášeníschopná.' : 'rada NENÍ usnášeníschopná (je potřeba většina).') };
+    }
+    function showQuorum(el, present, total) {
+        if (!el) return;
+        var q = quorumText(present, total);
+        el.textContent = q.text;
+        el.classList.toggle('quorum-ok', q.ok);
+        el.classList.toggle('quorum-bad', !q.ok);
+    }
+    function updateFormQuorum() {
+        var dialog = document.getElementById('attendance-dialog');
+        var el = document.querySelector('[data-quorum]');
+        if (!dialog || !el) return;
+        var rows = dialog.querySelectorAll('tr[data-member]');
+        var present = {};
+        ['attendees', 'online_attendees'].forEach(function (name) {
+            var textarea = field(name);
+            if (textarea) splitNames(textarea.value).forEach(function (n) { present[n] = true; });
+        });
+        var count = 0;
+        rows.forEach(function (row) { if (present[row.getAttribute('data-member')]) count++; });
+        showQuorum(el, count, rows.length);
+    }
+    function updateDialogQuorum(dialog) {
+        var rows = dialog.querySelectorAll('tr[data-member]');
+        var count = 0;
+        rows.forEach(function (row) {
+            var radio = row.querySelector('input:checked');
+            if (radio && (radio.value === 'attendees' || radio.value === 'online_attendees')) count++;
+        });
+        showQuorum(dialog.querySelector('[data-quorum-dialog]'), count, rows.length);
+    }
+    document.addEventListener('input', function (event) {
+        if (event.target.matches && event.target.matches('textarea[name="attendees"], textarea[name="online_attendees"]')) updateFormQuorum();
+    });
+    document.addEventListener('change', function (event) {
+        var dialog = document.getElementById('attendance-dialog');
+        if (dialog && dialog.contains(event.target)) updateDialogQuorum(dialog);
+    });
+    document.addEventListener('DOMContentLoaded', updateFormQuorum);
+    document.addEventListener('click', function (event) {
+        var dialog = document.getElementById('attendance-dialog');
+        if (!dialog) return;
+        if (event.target.closest('[data-attendance-open]')) {
+            dialog.querySelectorAll('tr[data-member]').forEach(function (row) {
+                var member = row.getAttribute('data-member');
+                var current = '';
+                fields.forEach(function (name) {
+                    var textarea = field(name);
+                    if (textarea && splitNames(textarea.value).indexOf(member) !== -1) current = name;
+                });
+                var radio = row.querySelector('input[value="' + current + '"]');
+                if (radio) radio.checked = true;
+            });
+            updateDialogQuorum(dialog);
+            if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+        } else if (event.target.closest('[data-attendance-close]')) {
+            dialog.close();
+        } else if (event.target.closest('[data-attendance-apply]')) {
+            var members = [];
+            var chosen = { attendees: [], online_attendees: [], absentees: [] };
+            dialog.querySelectorAll('tr[data-member]').forEach(function (row) {
+                var member = row.getAttribute('data-member');
+                members.push(member);
+                var radio = row.querySelector('input:checked');
+                if (radio && chosen[radio.value]) chosen[radio.value].push(member);
+            });
+            fields.forEach(function (name) {
+                var textarea = field(name);
+                if (!textarea) return;
+                var others = splitNames(textarea.value).filter(function (n) { return members.indexOf(n) === -1; });
+                textarea.value = chosen[name].concat(others).join(', ');
+            });
+            dialog.close();
+            updateFormQuorum();
+        }
+    });
+})();
+document.addEventListener('click', function (event) {
+    var all = event.target.closest('[data-check-all]');
+    var none = event.target.closest('[data-check-none]');
+    var button = all || none;
+    if (!button) return;
+    var name = button.getAttribute(all ? 'data-check-all' : 'data-check-none');
+    button.closest('form').querySelectorAll('input[type="checkbox"]').forEach(function (box) {
+        if (box.name === name) box.checked = !!all;
+    });
+});

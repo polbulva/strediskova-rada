@@ -68,7 +68,12 @@ final class SkautisClient
             $arguments += ['ID_Application' => $this->appId, 'ID_Login' => $token];
             $result = $this->client($service)->__soapCall($method, [[lcfirst($method) . 'Input' => $arguments]]);
         } catch (Throwable $exception) {
-            throw new SkautisException('Volání skautISu selhalo: ' . $exception->getMessage(), 0, $exception);
+            $sent = $arguments;
+            if (isset($sent['ID_Login'])) {
+                $sent['ID_Login'] = substr((string) $sent['ID_Login'], 0, 8) . '…';
+            }
+            $detail = $service . '/' . $method . ' ' . json_encode($sent, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            throw new SkautisException('Volání skautISu selhalo: ' . $exception->getMessage() . ' [odesláno: ' . $detail . ']', 0, $exception);
         }
 
         return $this->parse($method, $result);
@@ -162,7 +167,7 @@ function skautisIdentity(array $login): array
         throw new SkautisException('Skautis nevrátil údaje o uživateli.');
     }
 
-    $roles = $client->call('UserManagement', 'UserRoleAll', ['ID_User' => $user->ID ?? null, 'ActiveOnly' => true], $token);
+    $roles = $client->call('UserManagement', 'UserRoleAll', ['ID_User' => $user->ID ?? null, 'IsActive' => true], $token);
     $roles = is_array($roles) ? $roles : [];
 
     $selected = null;
@@ -200,7 +205,7 @@ function skautisIdentity(array $login): array
         $probe = [
             'type' => 'skautis',
             'username' => (string) ($user->UserName ?? ''),
-            'role_key' => (string) ($role->Role ?? $role->ID_Role ?? ''),
+            'role_key' => (string) ($role->ID_Role ?? $role->Role ?? ''),
             'role_name' => (string) ($role->DisplayName ?? $role->Role ?? ''),
             'unit_name' => (string) ($role->Unit ?? ''),
         ];
@@ -219,7 +224,7 @@ function skautisIdentity(array $login): array
     $available = [];
     foreach ($candidates as [$role, $registration]) {
         $available[] = [
-            'role_key' => (string) ($role->Role ?? $role->ID_Role ?? ''),
+            'role_key' => (string) ($role->ID_Role ?? $role->Role ?? ''),
             'role_name' => (string) ($role->DisplayName ?? $role->Role ?? ''),
             'unit_id' => (int) ($role->ID_Unit ?? 0) ?: null,
             'unit_name' => (string) ($role->Unit ?? ''),
@@ -237,7 +242,7 @@ function skautisIdentity(array $login): array
     return [
         'username' => $username,
         'name' => $person !== '' ? $person : $username,
-        'role_key' => $selected ? (string) ($selected->Role ?? $selected->ID_Role ?? '') : '',
+        'role_key' => $selected ? (string) ($selected->ID_Role ?? $selected->Role ?? '') : '',
         'role_name' => $selected ? (string) ($selected->DisplayName ?? $selected->Role ?? '') : '',
         'unit_id' => $login['unit_id'] ?? ($selected->ID_Unit ?? null),
         'unit_name' => $selected ? (string) ($selected->Unit ?? '') : '',

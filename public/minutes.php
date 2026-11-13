@@ -2,6 +2,7 @@
 
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/lib.php';
+require __DIR__ . '/src/members.php';
 
 $currentUser = requireModule('minutes');
 $canEditMinutes = canAccess($currentUser, 'minutes_edit');
@@ -356,6 +357,12 @@ renderHeader('Zápisy z rady', $currentUser);
                                 <input type="time" name="time_to" value="<?= h($values['time_to']) ?>">
                             </label>
                         </div>
+                        <?php $councilNames = array_column($pdo ? loadCouncilMembers($pdo) : [], 'name'); ?>
+                        <?php if ($councilNames): ?>
+                            <div class="wide">
+                                <button class="button secondary small" type="button" data-attendance-open><?= icon('groups') ?> Vybrat účast členů rady</button>
+                            </div>
+                        <?php endif; ?>
                         <label class="wide">Přítomni
                             <textarea name="attendees" rows="2"><?= h($values['attendees']) ?></textarea>
                         </label>
@@ -365,6 +372,9 @@ renderHeader('Zápisy z rady', $currentUser);
                         <label>Omluveni
                             <textarea name="absentees" rows="2"><?= h($values['absentees']) ?></textarea>
                         </label>
+                        <?php if ($councilNames): ?>
+                            <p class="wide quorum" data-quorum aria-live="polite"></p>
+                        <?php endif; ?>
                     </div>
 
                     <h3>Osnova a poznámky</h3>
@@ -523,5 +533,30 @@ renderHeader('Zápisy z rady', $currentUser);
         </aside>
         <?php endif; ?>
     </section>
+    <?php if (!empty($councilNames)): ?>
+        <dialog id="attendance-dialog">
+            <div class="attendance-box">
+                <h3>Účast členů rady</h3>
+                <table class="attendance-table">
+                    <thead><tr><th>Člen</th><th>Přítomen</th><th>Online</th><th>Omluven</th><th>—</th></tr></thead>
+                    <tbody>
+                        <?php foreach ($councilNames as $index => $memberName): ?>
+                            <tr data-member="<?= h($memberName) ?>">
+                                <td><?= h($memberName) ?></td>
+                                <?php foreach (['attendees' => 'Přítomen', 'online_attendees' => 'Online', 'absentees' => 'Omluven', '' => 'Nezadáno'] as $target => $label): ?>
+                                    <td><input type="radio" name="att<?= (int) $index ?>" value="<?= h($target) ?>" aria-label="<?= h($memberName . ': ' . $label) ?>"<?= $target === '' ? ' checked' : '' ?>></td>
+                                <?php endforeach; ?>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+                <p class="quorum" data-quorum-dialog aria-live="polite"></p>
+                <div class="actions">
+                    <button class="button" type="button" data-attendance-apply><?= icon('check') ?> Použít</button>
+                    <button class="button secondary" type="button" data-attendance-close>Zrušit</button>
+                </div>
+            </div>
+        </dialog>
+    <?php endif; ?>
 </main>
 <?php renderFooter(); ?>

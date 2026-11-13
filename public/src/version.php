@@ -1,11 +1,18 @@
 <?php
 
-const APP_VERSION = '1.6.0';
+const APP_VERSION = '1.7.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '1.7.0',
+            'date' => '2026-11-13',
+            'changes' => [
+                'Členové střediskové rady se načítají ze skautISu (role k synchronizaci se vybírají v Administraci na záložce Členové rady) a v zápisu se jejich účast (přítomen, online, omluven) vybírá v okně s přepínači a zápis hlídá usnášeníschopnost rady (většina členů). V Administraci jde také načíst obsazení funkcí v jednotce. Katalog rolí (středisko, oddíl, družina) jde načíst ze skautISu tlačítkem v Oprávněních i na záložce Členové rady; role se v oprávněních a výběru členů rady identifikují podle ID role. V Oprávněních je dole filtr rolí, kterým se skryjí role, které se v seznamech nemají zobrazovat (migrace 017_skryte_role.sql).',
+            ],
+        ],
         [
             'version' => '1.6.0',
             'date' => '2026-11-12',

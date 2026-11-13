@@ -28,14 +28,6 @@ try {
     $identity = skautisIdentity($login);
     $user = $identity + ['type' => 'skautis', 'token' => $login['token']];
 
-    try {
-        foreach ($user['roles'] ?: [$user] as $knownRole) {
-            rememberRole(databaseConnection(), $knownRole['role_key'], $knownRole['role_name']);
-        }
-    } catch (Throwable $exception) {
-        // evidence rolí je jen pomůcka pro administraci
-    }
-
     loginUser($user);
     redirect('portal.php');
 } catch (SkautisException $exception) {

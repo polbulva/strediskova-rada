@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS council_members (
+    id INT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+    skautis_user_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    role_name VARCHAR(255) NOT NULL DEFAULT '',
+    synced_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_council_user (skautis_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_czech_ci;

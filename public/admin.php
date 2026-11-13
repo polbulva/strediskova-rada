@@ -3,6 +3,7 @@
 require __DIR__ . '/src/bootstrap.php';
 require __DIR__ . '/src/calendar.php';
 require __DIR__ . '/src/lib.php';
+require __DIR__ . '/src/members.php';
 
 $currentUser = requireModule('admin');
 $modules = appModules();
@@ -13,6 +14,24 @@ try {
     $pdo = databaseConnection();
 } catch (Throwable $exception) {
     $errors[] = 'Databázi se nepodařilo připojit.';
+}
+
+function renderRolesSyncForm(string $returnTab): void
+{
+    ?>
+    <form method="post" class="roles-sync">
+        <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+        <input type="hidden" name="action" value="roles_sync">
+        <input type="hidden" name="return_tab" value="<?= h($returnTab) ?>">
+        <p class="muted">Načte katalog rolí ze skautISu (UserManagement/RoleAll) podle typu jednotky a přidá je do seznamu rolí.</p>
+        <div class="policy">
+            <label class="check"><input type="checkbox" name="unit_types[]" value="stredisko" checked> Středisko</label>
+            <label class="check"><input type="checkbox" name="unit_types[]" value="oddil"> Oddíl</label>
+            <label class="check"><input type="checkbox" name="unit_types[]" value="druzina"> Družina</label>
+        </div>
+        <button class="button secondary" type="submit"><?= icon('sync') ?> Načíst role ze skautISu</button>
+    </form>
+    <?php
 }
 
 function splitRoleKeys(string $text): array
@@ -110,6 +129,40 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
         } catch (Throwable $exception) {
             $errors[] = 'Nastavení se nepodařilo uložit. Zkontrolujte, že je databáze aktualizována (tabulka app_settings).';
         }
+    } elseif (in_array($_POST['action'] ?? '', ['members', 'council_roles'], true)) {
+        try {
+            if (isset($_POST['council_roles_form'])) {
+                saveCouncilRoleNames($pdo, array_merge(
+                    (array) ($_POST['council_roles'] ?? []),
+                    preg_split('/[\r\n,;]+/', (string) ($_POST['extra_council_roles'] ?? '')) ?: []
+                ));
+            }
+            if ($_POST['action'] === 'council_roles') {
+                flash('Výběr rolí byl uložen.', 'success');
+                redirect('admin.php?tab=members');
+            }
+            $result = syncCouncilMembers($pdo, $currentUser);
+            $note = $result['rows'] > $result['members'] ? ' (ze ' . $result['rows'] . ' záznamů rolí; stejná osoba s více záznamy se počítá jednou)' : '';
+            $warning = $result['fallback'] !== ''
+                ? ' Pozor: UserRoleALLUnit se nepodařilo zavolat, použita záložní cesta (UserAll + UserRoleAll), která může vrátit méně lidí. Důvod: ' . $result['fallback']
+                : '';
+            flash('Načteno členů střediskové rady: ' . $result['members'] . $note . '.' . $warning, $warning === '' ? 'success' : 'error');
+            redirect('admin.php?tab=members');
+        } catch (SkautisException $exception) {
+            $errors[] = 'Členy se nepodařilo načíst. ' . $exception->getMessage();
+        } catch (PDOException $exception) {
+            $errors[] = 'Členy se nepodařilo uložit. Zkontrolujte, že je spuštěn skript 015_clenove_rady.sql.';
+        }
+    } elseif (($_POST['action'] ?? '') === 'functions') {
+        try {
+            $count = syncUnitFunctions($pdo, $currentUser);
+            flash('Načteno obsazení funkcí: ' . $count . '.', 'success');
+            redirect('admin.php?tab=members');
+        } catch (SkautisException $exception) {
+            $errors[] = 'Funkce se nepodařilo načíst. ' . $exception->getMessage();
+        } catch (PDOException $exception) {
+            $errors[] = 'Funkce se nepodařilo uložit. Zkontrolujte, že je spuštěn skript 016_obsazeni_funkci.sql.';
+        }
     } elseif (($_POST['action'] ?? '') === 'agenda') {
         try {
             saveAgendaTemplate($pdo, (array) ($_POST['agenda'] ?? []), (array) ($_POST['agenda_new'] ?? []));
@@ -127,6 +180,42 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
             redirect('admin.php?tab=lookups');
         } catch (Throwable $exception) {
             $errors[] = 'Číselníky se nepodařilo uložit. Zkontrolujte, že jsou spuštěny všechny skripty z database/migrations.';
+        }
+    } elseif (($_POST['action'] ?? '') === 'roles_sync') {
+        $types = array_values(array_intersect(['stredisko', 'oddil', 'druzina'], array_map('strval', (array) ($_POST['unit_types'] ?? []))));
+        if (!$types) {
+            $errors[] = 'Vyberte alespoň jeden typ jednotky.';
+        } else {
+            try {
+                $count = syncCatalogRoles($pdo, $currentUser, $types);
+                flash('Načteno rolí ze skautISu: ' . $count . '.', 'success');
+                redirect(($_POST['return_tab'] ?? '') === 'members' ? 'admin.php?tab=members' : 'admin.php?tab=permissions');
+            } catch (SkautisException $exception) {
+                $errors[] = 'Role se nepodařilo načíst. ' . $exception->getMessage();
+            } catch (PDOException $exception) {
+                $errors[] = 'Role se nepodařilo uložit. Zkontrolujte databázi.';
+            }
+        }
+    } elseif (($_POST['action'] ?? '') === 'role_filter') {
+        $hiddenKeys = array_values(array_unique(array_filter(
+            array_map('strval', (array) ($_POST['hidden_roles'] ?? [])),
+            static fn (string $r): bool => $r !== '' && mb_strlen($r) <= 100
+        )));
+        try {
+            $pdo->beginTransaction();
+            $pdo->exec('UPDATE known_roles SET hidden = 0');
+            $mark = $pdo->prepare('UPDATE known_roles SET hidden = 1 WHERE role_key = :key');
+            foreach ($hiddenKeys as $hiddenKey) {
+                $mark->execute(['key' => $hiddenKey]);
+            }
+            $pdo->commit();
+            flash('Filtr rolí byl uložen.', 'success');
+            redirect('admin.php?tab=permissions');
+        } catch (Throwable $exception) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
+            $errors[] = 'Filtr rolí se nepodařilo uložit. Zkontrolujte, že je spuštěna migrace 017_skryte_role.sql.';
         }
     } elseif (($_POST['action'] ?? '') === 'permissions') {
         $newSettings = [];
@@ -173,16 +262,24 @@ if ($pdo && $_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $known = [];
+$allKnown = [];
 $settings = [];
 if ($pdo) {
     try {
         foreach (knownRoles($pdo) as $role) {
-            $known[$role['role_key']] = $role;
+            $allKnown[$role['role_key']] = $role;
         }
+        $selectedKeys = [];
         foreach ($modules as $key => $module) {
             $settings[$key] = modulePolicy($pdo, $key);
             foreach ($settings[$key]['roles'] as $roleKey) {
-                $known[$roleKey] ??= ['role_key' => $roleKey, 'label' => '', 'last_seen_at' => ''];
+                $selectedKeys[$roleKey] = true;
+            }
+        }
+        // v seznamech jsou jen role z katalogu skautISu (identifikované ID role)
+        foreach ($allKnown as $roleKey => $role) {
+            if (empty($role['hidden'])) {
+                $known[$roleKey] = $role;
             }
         }
     } catch (Throwable $exception) {
@@ -190,10 +287,10 @@ if ($pdo) {
     }
 }
 
-$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'plan_calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda'];
+$tabByAction = ['skautis' => 'connections', 'calendar' => 'connections', 'plan_calendar' => 'connections', 'logo' => 'connections', 'lookups' => 'lookups', 'agenda' => 'agenda', 'members' => 'members', 'council_roles' => 'members', 'functions' => 'members', 'roles_sync' => ($_POST['return_tab'] ?? '') === 'members' ? 'members' : 'permissions'];
 $tab = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? ($tabByAction[$_POST['action'] ?? ''] ?? 'permissions')
-    : (in_array($_GET['tab'] ?? '', ['permissions', 'lookups', 'agenda', 'connections'], true) ? $_GET['tab'] : 'permissions');
+    : (in_array($_GET['tab'] ?? '', ['permissions', 'lookups', 'agenda', 'members', 'connections'], true) ? $_GET['tab'] : 'permissions');
 $lookupData = [];
 $agendaRows = [];
 if ($pdo) {
@@ -226,6 +323,7 @@ renderHeader('Administrace', $currentUser);
         <a href="admin.php?tab=permissions"<?= $tab === 'permissions' ? ' class="active"' : '' ?>>Oprávnění</a>
         <a href="admin.php?tab=lookups"<?= $tab === 'lookups' ? ' class="active"' : '' ?>>Číselníky</a>
         <a href="admin.php?tab=agenda"<?= $tab === 'agenda' ? ' class="active"' : '' ?>>Osnova zápisu</a>
+        <a href="admin.php?tab=members"<?= $tab === 'members' ? ' class="active"' : '' ?>>Členové rady</a>
         <a href="admin.php?tab=connections"<?= $tab === 'connections' ? ' class="active"' : '' ?>>Připojení</a>
     </nav>
     <?php if ($pdo && $tab === 'connections'): ?>
@@ -303,6 +401,75 @@ renderHeader('Administrace', $currentUser);
                 <?php endif; ?>
                 <button class="button" type="submit">Uložit a ověřit kalendář</button>
             </form>
+        </section>
+    <?php endif; ?>
+
+    <?php if ($pdo && $tab === 'members'): ?>
+        <?php
+        $councilMembers = loadCouncilMembers($pdo);
+        $selectedRoles = councilRoleNames($pdo);
+        $roleOptions = [];
+        foreach ($allKnown as $knownKey => $knownRole) {
+            $roleOptions[(string) $knownKey] = trim((string) $knownRole['label']) ?: (string) $knownKey;
+        }
+        asort($roleOptions);
+        ?>
+        <section class="card">
+            <h2><?= icon('groups') ?> Členové střediskové rady</h2>
+            <p class="muted">Seznam se načítá ze skautISu: všichni, kdo ve vaší jednotce mají některou z vybraných rolí. Používá se v zápisu pro výběr účasti. Načítání probíhá pod vaším přihlášením, proto musíte být přihlášeni přes skautIS.</p>
+            <?php renderRolesSyncForm('members'); ?>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="council_roles_form" value="1">
+                <h3>Role, které se synchronizují</h3>
+                <div class="role-grid">
+                    <?php foreach ($roleOptions as $roleId => $roleLabel): ?>
+                        <label class="check role-option">
+                            <input type="checkbox" name="council_roles[]" value="<?= h((string) $roleId) ?>"<?= in_array((string) $roleId, $selectedRoles, true) ? ' checked' : '' ?>>
+                            <span><?= h($roleLabel) ?><small>ID <?= h((string) $roleId) ?></small></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
+                <label>Další role (názvy ze skautISu, jeden na řádek)
+                    <textarea name="extra_council_roles" rows="2" placeholder="např. Středisko: aktivní činovník"></textarea>
+                </label>
+                <div class="actions">
+                    <button class="button secondary" type="submit" name="action" value="council_roles"><?= icon('save') ?> Uložit výběr rolí</button>
+                    <button class="button" type="submit" name="action" value="members"><?= icon('sync') ?> Načíst členy ze skautISu</button>
+                </div>
+            </form>
+            <?php if ($councilMembers): ?>
+                <p class="muted">Poslední načtení: <?= h(formatDate(substr($councilMembers[0]['synced_at'], 0, 10))) ?></p>
+                <ul>
+                    <?php foreach ($councilMembers as $member): ?><li><?= h($member['name']) ?></li><?php endforeach; ?>
+                </ul>
+            <?php else: ?>
+                <p class="muted">Zatím nejsou načtení žádní členové.</p>
+            <?php endif; ?>
+        </section>
+        <?php $unitFunctions = loadUnitFunctions($pdo); ?>
+        <section class="card">
+            <h2><?= icon('badge') ?> Obsazení funkcí v jednotce</h2>
+            <p class="muted">Platné funkce ve vaší jednotce ze skautISu (vedoucí, zástupce, hospodář apod.). Načítají se jen po kliknutí na tlačítko.</p>
+            <form method="post">
+                <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                <input type="hidden" name="action" value="functions">
+                <button class="button" type="submit"><?= icon('sync') ?> Načíst funkce ze skautISu</button>
+            </form>
+            <?php if ($unitFunctions): ?>
+                <div class="table-wrap">
+                    <table class="doc-table">
+                        <thead><tr><th>Funkce</th><th>Osoba</th><th>Jednotka</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($unitFunctions as $function): ?>
+                                <tr><td><?= h($function['function_name']) ?></td><td><?= h($function['person_name']) ?></td><td><?= h($function['unit_name']) ?></td></tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+            <?php else: ?>
+                <p class="muted">Zatím nejsou načtené žádné funkce.</p>
+            <?php endif; ?>
         </section>
     <?php endif; ?>
 
@@ -475,6 +642,10 @@ renderHeader('Administrace', $currentUser);
         </script>
     <?php endif; ?>
     <?php if ($settings && $tab === 'permissions'): ?>
+        <section class="card">
+            <h2>Role ze skautISu</h2>
+            <?php renderRolesSyncForm('permissions'); ?>
+        </section>
         <form method="post" class="admin-form">
             <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
             <input type="hidden" name="action" value="permissions">
@@ -502,7 +673,7 @@ renderHeader('Administrace', $currentUser);
                             </label>
                         <?php endforeach; ?>
                         <?php if (!$known): ?>
-                            <p class="muted">Zatím se nikdo přes skautIS nepřihlásil, takže nejsou známé žádné role. Klíč role můžete zadat ručně.</p>
+                            <p class="muted">Role zatím nejsou načtené. Použijte tlačítko „Načíst role ze skautISu“ výše; klíč role můžete zadat i ručně.</p>
                         <?php endif; ?>
                     </div>
 
@@ -515,10 +686,34 @@ renderHeader('Administrace', $currentUser);
             <button class="button" type="submit">Uložit oprávnění</button>
         </form>
 
+        <?php if ($allKnown): ?>
+            <section class="card">
+                <h2>Filtr rolí</h2>
+                <p class="muted">Zaškrtnuté role se v seznamech výše nezobrazují (např. role získané účastí na sněmu). Role, která už má někde přidělený přístup, zůstane viditelná.</p>
+                <form method="post" class="admin-form">
+                    <input type="hidden" name="csrf_token" value="<?= h(csrfToken()) ?>">
+                    <input type="hidden" name="action" value="role_filter">
+                    <div class="actions">
+                        <button class="button secondary small" type="button" data-check-all="hidden_roles[]">Vybrat vše</button>
+                        <button class="button secondary small" type="button" data-check-none="hidden_roles[]">Zrušit výběr</button>
+                    </div>
+                    <div class="role-grid">
+                        <?php foreach ($allKnown as $roleKey => $role): ?>
+                            <label class="check role-option">
+                                <input type="checkbox" name="hidden_roles[]" value="<?= h($roleKey) ?>"<?= !empty($role['hidden']) ? ' checked' : '' ?>>
+                                <span><?= h($role['label'] ?: $roleKey) ?><small><?= h($roleKey) ?></small></span>
+                            </label>
+                        <?php endforeach; ?>
+                    </div>
+                    <button class="button" type="submit">Uložit filtr</button>
+                </form>
+            </section>
+        <?php endif; ?>
+
         <section class="card">
             <h2>Vaše aktuální role</h2>
             <p>Klíč role, podle kterého se přiděluje přístup: <code><?= h($currentUser['role_key'] ?: '—') ?></code> (<?= h($currentUser['role_name'] ?: 'bez role') ?>)</p>
-            <p class="muted">Seznam rolí se plní průběžně z přihlášení uživatelů přes skautIS. Má-li někdo přistupovat s rolí, která se ještě nepřihlásila, zadejte její klíč ručně.</p>
+            <p class="muted">Seznam rolí pochází z katalogu skautISu (tlačítko „Načíst role ze skautISu“). Potřebujete-li roli, která v katalogu není, zadejte její klíč ručně.</p>
         </section>
     <?php endif; ?>
 </main>

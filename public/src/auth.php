@@ -180,10 +180,16 @@ function rememberRole(PDO $pdo, string $roleKey, string $label): void
     )->execute(['key' => mb_substr($roleKey, 0, 100), 'label' => mb_substr($label, 0, 255)]);
 }
 
-/** @return array<int, array{role_key: string, label: string, last_seen_at: string}> */
+/** @return array<int, array{role_key: string, label: string, last_seen_at: string, hidden: int}> */
 function knownRoles(PDO $pdo): array
 {
-    return $pdo->query('SELECT role_key, label, last_seen_at FROM known_roles ORDER BY label, role_key')->fetchAll();
+    try {
+        return $pdo->query('SELECT role_key, label, last_seen_at, hidden FROM known_roles ORDER BY label, role_key')->fetchAll();
+    } catch (Throwable $exception) {
+        // sloupec hidden vznikne až migrací 017
+        $rows = $pdo->query('SELECT role_key, label, last_seen_at FROM known_roles ORDER BY label, role_key')->fetchAll();
+        return array_map(static fn (array $row): array => $row + ['hidden' => 0], $rows);
+    }
 }
 
 function demoRoleOptions(): array
