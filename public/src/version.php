@@ -1,11 +1,18 @@
 <?php
 
-const APP_VERSION = '1.7.0';
+const APP_VERSION = '2.0.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '2.0.0',
+            'date' => '2026-11-13',
+            'changes' => [
+                'Nový modul Inventář: seznam inventáře s hledáním a přidání položky (název, data pořízení a zaúčtování, doklad, cena, sklad z číselníku Sklady v Administraci, inventární číslo ve tvaru RR-NNN, např. 25-001). Nové oprávnění „Inventář“ a „Úprava inventáře“ (Administrace → Oprávnění). Vyžaduje spustit skripty 018_inventar.sql a 019_sklady_inventarni_cisla.sql.',
+            ],
+        ],
         [
             'version' => '1.7.0',
             'date' => '2026-11-13',

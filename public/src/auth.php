@@ -55,6 +55,21 @@ function appModules(): array
             'policy' => 'roles',
             'tile' => false,
         ],
+        'inventory' => [
+            'title' => 'Inventář',
+            'description' => 'Seznam inventáře střediska (jen ke čtení).',
+            'icon' => '<span class="material-symbols-outlined">inventory_2</span>',
+            'url' => 'inventory.php',
+            'policy' => 'roles',
+        ],
+        'inventory_edit' => [
+            'title' => 'Úprava inventáře',
+            'description' => 'Přidávání položek do inventáře.',
+            'icon' => '<span class="material-symbols-outlined">edit</span>',
+            'url' => 'inventory.php',
+            'policy' => 'roles',
+            'tile' => false,
+        ],
         'admin' => [
             'title' => 'Administrace',
             'description' => 'Nastavení, které role mají přístup do jednotlivých částí aplikace.',

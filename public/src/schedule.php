@@ -10,6 +10,7 @@ function lookupTypes(): array
         'clubroom' => 'Klubovny',
         'unit' => 'Oddíly',
         'group' => 'Družiny',
+        'warehouse' => 'Sklady',
     ];
 }
 
