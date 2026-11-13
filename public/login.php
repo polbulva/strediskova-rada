@@ -29,7 +29,9 @@ try {
     $user = $identity + ['type' => 'skautis', 'token' => $login['token']];
 
     try {
-        rememberRole(databaseConnection(), $user['role_key'], $user['role_name']);
+        foreach ($user['roles'] ?: [$user] as $knownRole) {
+            rememberRole(databaseConnection(), $knownRole['role_key'], $knownRole['role_name']);
+        }
     } catch (Throwable $exception) {
         // evidence rolí je jen pomůcka pro administraci
     }

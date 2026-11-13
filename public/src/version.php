@@ -1,11 +1,18 @@
 <?php
 
-const APP_VERSION = '1.5.0';
+const APP_VERSION = '1.6.0';
 
 /** Novinky aplikace, nejnovější verze nahoře. Při vydání přidejte nový záznam a zvyšte APP_VERSION. */
 function releaseNotes(): array
 {
     return [
+        [
+            'version' => '1.6.0',
+            'date' => '2026-11-12',
+            'changes' => [
+                'Po přihlášení se do seznamu rolí v administraci zapisují všechny aktivní role uživatele z jednotky nastavené v aplikaci (unit_number); role z jiných jednotek se do seznamu nedostanou.',
+            ],
+        ],
         [
             'version' => '1.5.0',
             'date' => '2026-11-11',
