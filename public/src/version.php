@@ -14,15 +14,8 @@ function releaseNotes(): array
             ],
         ],
         [
-            'version' => '1.6.0',
-            'date' => '2026-11-12',
-            'changes' => [
-                'Po přihlášení se do seznamu rolí v administraci zapisují všechny aktivní role uživatele z jednotky nastavené v aplikaci (unit_number); role z jiných jednotek se do seznamu nedostanou.',
-            ],
-        ],
-        [
             'version' => '1.5.0',
-            'date' => '2026-11-11',
+            'date' => '2026-11-12',
             'changes' => [
                 'Nový vzhled podle Google Material Design 3: ikony Material Symbols, horní lišta, karty, zaoblená tlačítka s efektem, pole formulářů, záložky a dialogy, písmo Roboto.',
                 'Přírodnější barevnost, skautské písmo (nadpisy Skaut Bold, text The Mix) a odsazení mezi bloky v celé aplikaci.',
@@ -32,6 +25,7 @@ function releaseNotes(): array
                 'Uživatel s více rolemi ve skautISu si v hlavičce vybere, pod jakou rolí chce aplikaci používat.',
                 'Nové menu: levý panel (na malých obrazovkách rozbalovací), administrace u přihlášeného uživatele, novinky přes číslo verze v patičce.',
                 'Na rozcestníku jsou dlaždice nahoře a nejbližší středisková rada pod nimi, jen se základními údaji.',
+                'Po přihlášení se do seznamu rolí v administraci zapisují všechny aktivní role uživatele z jednotky nastavené v aplikaci (unit_number); role z jiných jednotek se do seznamu nedostanou.',
             ],
         ],
         [
